@@ -1,0 +1,48 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="关于"
+  description="DWILL Blog 的架构思路与长期运营方法。"
+>
+  <div class="page-center page-center-narrow">
+    <section class="page-intro page-intro-center">
+      <p>关于</p>
+      <h1>系统理念</h1>
+    </section>
+
+    <section class="surface-inline-grid" aria-label="About system goals">
+      <article class="surface-card">
+        <p class="surface-kicker">架构</p>
+        <h3>静态优先发布</h3>
+        <p>Markdown 内容源，可预测构建，输出与托管平台无关。</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">迁移</p>
+        <h3>先 Cloudflare，后 VPS</h3>
+        <p>保持一致 URL 与产物模型，确保部署可迁移性。</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">性能</p>
+        <h3>低运行时策略</h3>
+        <p>内容页最小化 JS，路由在构建期静态生成。</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">设计</p>
+        <h3>有辨识度但保持克制</h3>
+        <p>视觉风格明确，同时控制依赖规模和维护复杂度。</p>
+      </article>
+    </section>
+
+    <section class="prose-flow">
+      <h2>设计目标</h2>
+      <ul>
+        <li>代码结构与运维流程保持极简。</li>
+        <li>首屏加载快，运行时 JavaScript 尽量少。</li>
+        <li>可持续发布，具备长期可维护性。</li>
+        <li>视觉有识别度，但不引入沉重前端负担。</li>
+      </ul>
+    </section>
+  </div>
+</BaseLayout>

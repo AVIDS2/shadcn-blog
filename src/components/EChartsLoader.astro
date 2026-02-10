@@ -1,0 +1,42 @@
+<script>
+  const targets = Array.from(
+    document.querySelectorAll<HTMLElement>(".chart-frame[data-echarts-option]"),
+  );
+
+  if (targets.length > 0) {
+    const echarts = await import("echarts");
+    const chartInstances: Array<{ resize: () => void; dispose: () => void }> = [];
+    const resizeHandlers: Array<() => void> = [];
+
+    for (const target of targets) {
+      const optionString = target.getAttribute("data-echarts-option");
+      if (!optionString) continue;
+
+      try {
+        const option = JSON.parse(decodeURIComponent(optionString));
+        const chart = echarts.init(target, null, { renderer: "svg" });
+        chart.setOption(option);
+        chartInstances.push(chart);
+
+        const handleResize = () => chart.resize();
+        window.addEventListener("resize", handleResize);
+        resizeHandlers.push(handleResize);
+      } catch (error) {
+        console.error("Failed to render echarts block:", error);
+      }
+    }
+
+    window.addEventListener(
+      "beforeunload",
+      () => {
+        for (const resizeHandler of resizeHandlers) {
+          window.removeEventListener("resize", resizeHandler);
+        }
+        for (const chart of chartInstances) {
+          chart.dispose();
+        }
+      },
+      { once: true },
+    );
+  }
+</script>

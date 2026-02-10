@@ -1,0 +1,48 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { formatDate, estimateReadingTime } from "../utils/format";
+import { formatTagForPath } from "../utils/posts";
+import type { SiteLocale } from "../utils/i18n";
+import { withLocalePrefix } from "../utils/i18n";
+
+interface Props {
+  post: CollectionEntry<"posts">;
+  locale: SiteLocale;
+}
+
+const { post, locale } = Astro.props;
+const readingTime = estimateReadingTime(post.body);
+const isZh = locale === "zh-CN";
+const readTimeLabel = isZh ? `${readingTime} 分钟阅读` : `${readingTime} min read`;
+const readLinkLabel = isZh ? "阅读全文" : "Read article";
+const postHref = withLocalePrefix(`/posts/${post.data.translationKey}/`, locale);
+---
+
+<article class="post-card">
+  <div class="post-card-topline">
+    <span>{formatDate(post.data.date)}</span>
+    <span>{readTimeLabel}</span>
+  </div>
+  <h2>
+    <a href={postHref}>{post.data.title}</a>
+  </h2>
+  <p>{post.data.description}</p>
+  {
+    post.data.tags.length > 0 && (
+      <ul class="tag-list" aria-label="Article tags">
+        {post.data.tags.slice(0, 4).map((tag) => (
+          <li>
+            <a href={`/tags/${formatTagForPath(tag)}/`}>#{tag}</a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <a
+    class="post-card-link"
+    href={postHref}
+    aria-label={`${readLinkLabel} ${post.data.title}`}
+  >
+    {readLinkLabel}
+  </a>
+</article>

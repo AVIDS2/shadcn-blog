@@ -1,0 +1,252 @@
+﻿---
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import EChartsLoader from "../../components/EChartsLoader.astro";
+import { estimateReadingTime, formatDate } from "../../utils/format";
+import { formatTagForPath, getPublishedPosts } from "../../utils/posts";
+import { withLocalePrefix, type SiteLocale } from "../../utils/i18n";
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts("zh-CN");
+  return posts.map((post) => ({
+    params: { slug: post.data.translationKey },
+    props: { post },
+  }));
+}
+
+interface Props {
+  post: CollectionEntry<"posts">;
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await post.render();
+const locale: SiteLocale = "zh-CN";
+const site = Astro.site ?? new URL("https://blog2.dwill.top");
+const readingTime = estimateReadingTime(post.body);
+const hasEcharts = post.body.includes("```echarts");
+const path = withLocalePrefix(`/posts/${post.data.translationKey}/`, locale);
+const tocItems = headings.filter((heading) => heading.depth <= 3);
+
+const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.date.toISOString(),
+  ...(post.data.updated ? { dateModified: post.data.updated.toISOString() } : {}),
+  mainEntityOfPage: new URL(path, site).toString(),
+  author: {
+    "@type": "Person",
+    name: "DWILL",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "DWILL Blog",
+  },
+  keywords: post.data.tags.join(", "),
+};
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  type="article"
+  publishedTime={post.data.date.toISOString()}
+  modifiedTime={post.data.updated?.toISOString()}
+>
+  <article class="article-shell">
+    <div class="article-main">
+      <header class="article-header">
+        <p class="article-meta">{formatDate(post.data.date)} - {readingTime} 分钟阅读</p>
+        <h1>{post.data.title}</h1>
+        <p class="article-description">{post.data.description}</p>
+        {
+          post.data.tags.length > 0 && (
+            <ul class="tag-list" aria-label="Article tags">
+              {post.data.tags.map((tag) => (
+                <li>
+                  <a href={`/tags/${formatTagForPath(tag)}/`}>#{tag}</a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </header>
+
+      {
+        tocItems.length > 0 && (
+          <details class="toc-mobile" aria-label="Table of contents">
+            <summary>本页目录</summary>
+            <ul>
+              {tocItems.map((heading) => (
+                <li class={`toc-depth-${heading.depth}`}>
+                  <a href={`#${heading.slug}`} data-toc-link={heading.slug}>
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
+      }
+
+      <div class="prose-flow">
+        <Content />
+      </div>
+    </div>
+
+    {
+      tocItems.length > 0 && (
+        <aside class="toc-box toc-desktop" aria-label="Table of contents">
+          <p>本页目录</p>
+          <ul>
+            {tocItems.map((heading) => (
+              <li class={`toc-depth-${heading.depth}`}>
+                <a href={`#${heading.slug}`} data-toc-link={heading.slug}>
+                  {heading.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+  </article>
+
+  <script
+    is:inline
+    type="application/ld+json"
+    set:html={JSON.stringify(articleJsonLd)}
+  />
+  {
+    tocItems.length > 0 && (
+      <script is:inline>
+        (() => {
+          const links = Array.from(document.querySelectorAll("[data-toc-link]"));
+          const linksById = new Map();
+          links.forEach((link) => {
+            const id = link.getAttribute("data-toc-link");
+            if (!id) return;
+            const group = linksById.get(id) ?? [];
+            group.push(link);
+            linksById.set(id, group);
+          });
+          const headings = Array.from(document.querySelectorAll(".prose-flow h2[id], .prose-flow h3[id]"));
+
+          if (!headings.length || !links.length) return;
+
+          const setActive = (id) => {
+            links.forEach((link) => link.removeAttribute("aria-current"));
+            const group = linksById.get(id) ?? [];
+            group.forEach((link) => link.setAttribute("aria-current", "true"));
+          };
+
+          const headingNodes = headings.map((node) => ({ id: node.id, node }));
+          const ACTIVE_OFFSET = 120;
+          let headingOffsets = [];
+          let ticking = false;
+
+          const getAbsoluteTop = (node) => node.getBoundingClientRect().top + window.scrollY;
+
+          const rebuildOffsets = () => {
+            headingOffsets = headingNodes
+              .map((item) => ({ id: item.id, top: getAbsoluteTop(item.node) }))
+              .sort((a, b) => a.top - b.top);
+          };
+
+          const computeActiveId = () => {
+            if (!headingOffsets.length) return null;
+            const cursor = window.scrollY + ACTIVE_OFFSET;
+            let activeId = headingOffsets[0].id;
+
+            for (const item of headingOffsets) {
+              if (cursor >= item.top) {
+                activeId = item.id;
+              } else {
+                break;
+              }
+            }
+
+            return activeId;
+          };
+
+          const updateActive = () => {
+            const id = computeActiveId();
+            if (id) setActive(id);
+          };
+
+          const onScroll = () => {
+            if (ticking) return;
+            ticking = true;
+            window.requestAnimationFrame(() => {
+              updateActive();
+              ticking = false;
+            });
+          };
+
+          window.addEventListener("scroll", onScroll, { passive: true });
+          window.addEventListener("resize", () => {
+            rebuildOffsets();
+            onScroll();
+          });
+          window.addEventListener("hashchange", () => {
+            const hashId = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+            if (hashId && linksById.has(hashId)) {
+              setActive(hashId);
+              return;
+            }
+            updateActive();
+          });
+          links.forEach((link) => {
+            link.addEventListener("click", () => {
+              const id = link.getAttribute("data-toc-link");
+              if (id) setActive(id);
+            });
+          });
+
+          rebuildOffsets();
+          window.addEventListener("load", () => {
+            rebuildOffsets();
+            updateActive();
+          });
+          updateActive();
+        })();
+      </script>
+    )
+  }
+  <script is:inline>
+    (() => {
+      const blocks = Array.from(document.querySelectorAll(".prose-flow pre.astro-code"));
+      if (!blocks.length) return;
+
+      blocks.forEach((pre) => {
+        if (!(pre instanceof HTMLElement)) return;
+        if (pre.querySelector(".code-copy-btn")) return;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "code-copy-btn";
+        btn.textContent = "复制";
+        btn.setAttribute("aria-label", "复制代码");
+
+        btn.addEventListener("click", async () => {
+          const code = pre.querySelector("code");
+          const text = code?.textContent ?? "";
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = "已复制";
+            window.setTimeout(() => {
+              btn.textContent = "复制";
+            }, 1200);
+          } catch (error) {
+            console.error("Copy failed:", error);
+          }
+        });
+
+        pre.appendChild(btn);
+      });
+    })();
+  </script>
+  {hasEcharts && <EChartsLoader />}
+</BaseLayout>
+

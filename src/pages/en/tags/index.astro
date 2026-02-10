@@ -1,0 +1,35 @@
+﻿---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { formatTagForPath, getAllTagsWithCount } from "../../../utils/posts";
+import type { SiteLocale } from "../../../utils/i18n";
+
+const locale: SiteLocale = "en-US";
+const tags = await getAllTagsWithCount(locale);
+---
+
+<BaseLayout
+  title="Tags"
+  description="Topic index for DWILL Blog. Navigate articles by category and signal."
+>
+  <div class="page-center">
+    <section class="page-intro page-intro-center">
+      <p>Taxonomy</p>
+      <h1>All Tags</h1>
+      <p>{tags.length} tags currently indexed.</p>
+    </section>
+
+    <section class="tag-card-grid" aria-label="Tag index">
+      {
+        tags.map(([tag, count]) => (
+          <article class="surface-card tag-card">
+            <a href={`/en/tags/${formatTagForPath(tag)}/`}>
+              <p class="surface-kicker">Topic</p>
+              <h3>#{tag}</h3>
+              <p>{count} article{count > 1 ? "s" : ""}</p>
+            </a>
+          </article>
+        ))
+      }
+    </section>
+  </div>
+</BaseLayout>

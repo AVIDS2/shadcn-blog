@@ -1,0 +1,323 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const config = {
+  locale: "en-US",
+  indexUrl: "/en/search-index.json",
+  basePath: "/en/search/",
+  ui: {
+    subtitle: "Search Center",
+    title: "Site Search",
+    description: "Full-text search across title, description, tags, and content with hot query trends.",
+    inputPlaceholder: "Search posts, tags, or keywords...",
+    submitLabel: "Search",
+    searching: "Searching...",
+    empty: "No matching results. Try a shorter or more specific query.",
+    idle: "Type a keyword to start searching.",
+    resultCount: "results",
+    hotTitle: "Hot Searches",
+    hotEmpty: "No hot searches yet. Run a few searches to build trends.",
+    hotHint: "Hot searches are based on local browser stats.",
+    readLabel: "Read article",
+    readTime: "min read",
+  },
+};
+---
+
+<BaseLayout title="Search" description="DWILL Blog search with full-text matching and local hot-search trends.">
+  <div class="page-center page-center-wide search-page">
+    <section class="page-intro page-intro-center">
+      <p>{config.ui.subtitle}</p>
+      <h1>{config.ui.title}</h1>
+      <p>{config.ui.description}</p>
+    </section>
+
+    <form class="search-console" data-search-form role="search">
+      <input
+        class="search-console-input"
+        type="search"
+        name="q"
+        list="search-suggest-list"
+        placeholder={config.ui.inputPlaceholder}
+        autocomplete="off"
+        data-search-input
+      />
+      <button class="header-cta" type="submit">{config.ui.submitLabel}</button>
+    </form>
+    <datalist id="search-suggest-list" data-suggest-list></datalist>
+
+    <section class="search-hot" aria-label="Hot search">
+      <div class="section-head">
+        <h2>{config.ui.hotTitle}</h2>
+      </div>
+      <p class="search-hot-hint">{config.ui.hotHint}</p>
+      <div class="search-chip-list" data-hot-list></div>
+    </section>
+
+    <section class="section-stack">
+      <div class="section-head">
+        <h2>{config.ui.title}</h2>
+      </div>
+      <p class="search-meta" data-search-meta>{config.ui.idle}</p>
+      <section class="post-grid post-grid-wide" data-search-results></section>
+    </section>
+  </div>
+
+  <script
+    type="application/json"
+    id="search-config"
+    is:inline
+    set:html={JSON.stringify(config)}
+  ></script>
+
+  <script is:inline>
+    (() => {
+      const cfgEl = document.getElementById("search-config");
+      if (!cfgEl) return;
+      const cfg = JSON.parse(cfgEl.textContent || "{}");
+      const form = document.querySelector("[data-search-form]");
+      const input = document.querySelector("[data-search-input]");
+      const resultRoot = document.querySelector("[data-search-results]");
+      const meta = document.querySelector("[data-search-meta]");
+      const hotRoot = document.querySelector("[data-hot-list]");
+      const suggestList = document.querySelector("[data-suggest-list]");
+      if (!(form instanceof HTMLFormElement) ||
+          !(input instanceof HTMLInputElement) ||
+          !(resultRoot instanceof HTMLElement) ||
+          !(meta instanceof HTMLElement) ||
+          !(hotRoot instanceof HTMLElement) ||
+          !(suggestList instanceof HTMLElement)) return;
+
+      const HOT_KEY = `dwill_hot_search_v1_${cfg.locale}`;
+      const collator = new Intl.Collator(cfg.locale, { sensitivity: "base" });
+      let docs = [];
+      let hotMap = {};
+
+      const esc = (value) =>
+        value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+
+      const normalize = (text) => (text || "").toLowerCase().trim();
+      const tokenize = (query) => normalize(query).split(/\s+/).filter(Boolean);
+
+      const formatDate = (isoDate) =>
+        new Intl.DateTimeFormat(cfg.locale, {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(isoDate));
+
+      const readHot = () => {
+        try {
+          const raw = localStorage.getItem(HOT_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch {
+          return {};
+        }
+      };
+
+      const writeHot = (next) => {
+        localStorage.setItem(HOT_KEY, JSON.stringify(next));
+      };
+
+      const recordHot = (query) => {
+        const key = normalize(query);
+        if (!key) return;
+        hotMap[key] = (hotMap[key] ?? 0) + 1;
+        writeHot(hotMap);
+      };
+
+      const fallbackHot = () => {
+        const counts = new Map();
+        for (const doc of docs) {
+          for (const tag of doc.tags || []) {
+            counts.set(tag, (counts.get(tag) ?? 0) + 1);
+          }
+        }
+        return [...counts.entries()]
+          .sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0]))
+          .slice(0, 8)
+          .map(([tag]) => tag);
+      };
+
+      const renderHot = () => {
+        const fromLog = Object.entries(hotMap)
+          .sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0]))
+          .slice(0, 8)
+          .map(([term]) => term);
+        const source = fromLog.length > 0 ? fromLog : fallbackHot();
+
+        if (source.length === 0) {
+          hotRoot.innerHTML = `<span class="search-hot-empty">${cfg.ui.hotEmpty}</span>`;
+          return;
+        }
+
+        hotRoot.innerHTML = source
+          .map(
+            (term) =>
+              `<button type="button" class="search-chip" data-hot-term="${esc(term)}">${esc(term)}</button>`,
+          )
+          .join("");
+      };
+
+      const scoreDoc = (doc, query, tokens) => {
+        const q = normalize(query);
+        const title = normalize(doc.title);
+        const desc = normalize(doc.description);
+        const tags = normalize((doc.tags || []).join(" "));
+        const content = normalize(doc.content);
+        let score = 0;
+
+        if (title.includes(q)) score += 80;
+        if (desc.includes(q)) score += 34;
+        if (tags.includes(q)) score += 42;
+        if (content.includes(q)) score += 20;
+
+        for (const token of tokens) {
+          if (title.includes(token)) score += 20;
+          if (desc.includes(token)) score += 12;
+          if (tags.includes(token)) score += 14;
+          if (content.includes(token)) score += 5;
+        }
+
+        return score;
+      };
+
+      const renderResults = (results, query) => {
+        if (!query) {
+          meta.textContent = cfg.ui.idle;
+          resultRoot.innerHTML = "";
+          return;
+        }
+        if (results.length === 0) {
+          meta.textContent = cfg.ui.empty;
+          resultRoot.innerHTML = "";
+          return;
+        }
+
+        meta.textContent = `${results.length} ${cfg.ui.resultCount}`;
+        resultRoot.innerHTML = results
+          .map(
+            (item) => `
+              <article class="post-card">
+                <div class="post-card-topline">
+                  <span>${esc(formatDate(item.date))}</span>
+                  <span>${item.readingTime} ${esc(cfg.ui.readTime)}</span>
+                </div>
+                <h2><a href="${esc(item.url)}">${esc(item.title)}</a></h2>
+                <p>${esc(item.description)}</p>
+                ${
+                  (item.tags || []).length > 0
+                    ? `<ul class="tag-list">${item.tags
+                        .slice(0, 5)
+                        .map((tag) => `<li><span class="search-tag-chip">#${esc(tag)}</span></li>`)
+                        .join("")}</ul>`
+                    : ""
+                }
+                <a class="post-card-link" href="${esc(item.url)}">${esc(cfg.ui.readLabel)}</a>
+              </article>
+            `,
+          )
+          .join("");
+      };
+
+      const setQueryInUrl = (value) => {
+        const url = new URL(window.location.href);
+        if (value) url.searchParams.set("q", value);
+        else url.searchParams.delete("q");
+        history.replaceState({}, "", `${cfg.basePath}${url.search}`);
+      };
+
+      const runSearch = (query, shouldRecord = false) => {
+        const q = normalize(query);
+        const tokens = tokenize(q);
+        if (!q) {
+          renderResults([], "");
+          renderHot();
+          return;
+        }
+
+        const ranked = docs
+          .map((doc) => ({ doc, score: scoreDoc(doc, q, tokens) }))
+          .filter((item) => item.score > 0)
+          .sort(
+            (a, b) =>
+              b.score - a.score ||
+              new Date(b.doc.date).valueOf() - new Date(a.doc.date).valueOf(),
+          )
+          .slice(0, 50)
+          .map((item) => item.doc);
+
+        renderResults(ranked, q);
+        if (shouldRecord && ranked.length > 0) {
+          recordHot(q);
+          renderHot();
+        }
+      };
+
+      const fillSuggestions = () => {
+        const top = docs.slice(0, 40).map((doc) => doc.title);
+        suggestList.innerHTML = top.map((title) => `<option value="${esc(title)}"></option>`).join("");
+      };
+
+      const bootstrap = async () => {
+        meta.textContent = cfg.ui.searching;
+        hotMap = readHot();
+        renderHot();
+
+        const response = await fetch(cfg.indexUrl, { credentials: "same-origin" });
+        if (!response.ok) {
+          meta.textContent = cfg.ui.empty;
+          return;
+        }
+
+        const payload = await response.json();
+        docs = payload.docs || [];
+        fillSuggestions();
+
+        const initialQuery = new URL(window.location.href).searchParams.get("q") || "";
+        if (initialQuery) {
+          input.value = initialQuery;
+          runSearch(initialQuery);
+        } else {
+          meta.textContent = cfg.ui.idle;
+        }
+      };
+
+      let inputTimer = 0;
+      input.addEventListener("input", () => {
+        if (inputTimer) window.clearTimeout(inputTimer);
+        const value = input.value;
+        inputTimer = window.setTimeout(() => {
+          setQueryInUrl(value);
+          runSearch(value);
+        }, 120);
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = input.value;
+        setQueryInUrl(value);
+        runSearch(value, true);
+      });
+
+      hotRoot.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const term = target.getAttribute("data-hot-term");
+        if (!term) return;
+        input.value = term;
+        setQueryInUrl(term);
+        runSearch(term, true);
+      });
+
+      bootstrap().catch(() => {
+        meta.textContent = cfg.ui.empty;
+      });
+    })();
+  </script>
+</BaseLayout>

@@ -1,0 +1,39 @@
+﻿---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PostCard from "../../../components/PostCard.astro";
+import { getPublishedPosts } from "../../../utils/posts";
+import type { SiteLocale } from "../../../utils/i18n";
+
+const locale: SiteLocale = "en-US";
+const posts = await getPublishedPosts(locale);
+---
+
+<BaseLayout
+  title="Posts"
+  description="All articles from DWILL Blog. Lightweight static publishing with strong SEO and low runtime cost."
+>
+  <div class="page-center page-center-wide">
+    <section class="page-intro page-intro-center">
+      <p>Archive</p>
+      <h1>All Posts</h1>
+      <p>{posts.length} published article{posts.length > 1 ? "s" : ""}.</p>
+    </section>
+
+    <section class="surface-inline-grid" aria-label="Post archive summary">
+      <article class="surface-card">
+        <p class="surface-kicker">Collection</p>
+        <h3>Chronological feed</h3>
+        <p>All public posts generated as static pages with deterministic routes.</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">Distribution</p>
+        <h3>Search + RSS ready</h3>
+        <p>Sitemap and RSS are generated on build for crawling and subscription workflows.</p>
+      </article>
+    </section>
+
+    <section class="post-grid post-grid-wide">
+      {posts.map((post) => <PostCard post={post} locale={locale} />)}
+    </section>
+  </div>
+</BaseLayout>

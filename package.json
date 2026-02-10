@@ -1,0 +1,42 @@
+{
+  "name": "blog",
+  "version": "1.0.0",
+  "description": "Ultra-lightweight static blog for blog2.dwill.top",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "deploy:cf": "npm run build && npx wrangler pages deploy dist"
+  },
+  "keywords": [
+    "astro",
+    "static-blog",
+    "cloudflare-pages"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@astrojs/rss": "^4.0.15",
+    "@astrojs/sitemap": "^3.7.0",
+    "astro": "^5.17.1",
+    "echarts": "^6.0.0",
+    "hast-util-to-string": "^3.0.1",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-katex": "^7.0.1",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "three": "^0.182.0",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@types/node": "^25.2.2",
+    "@types/three": "^0.182.0",
+    "typescript": "^5.9.3"
+  }
+}

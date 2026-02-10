@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://blog2.dwill.top/sitemap-index.xml
+

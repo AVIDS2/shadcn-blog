@@ -1,0 +1,48 @@
+﻿---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="About"
+  description="About the architecture and operating philosophy behind DWILL Blog."
+>
+  <div class="page-center page-center-narrow">
+    <section class="page-intro page-intro-center">
+      <p>About</p>
+      <h1>System Philosophy</h1>
+    </section>
+
+    <section class="surface-inline-grid" aria-label="About system goals">
+      <article class="surface-card">
+        <p class="surface-kicker">Architecture</p>
+        <h3>Static-first publishing</h3>
+        <p>Markdown content, deterministic build, and host-independent output.</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">Migration</p>
+        <h3>Cloudflare now, VPS later</h3>
+        <p>Identical URL and artifact model for deployment portability.</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">Performance</p>
+        <h3>Low-runtime strategy</h3>
+        <p>Minimal JS on content pages and static route pre-generation.</p>
+      </article>
+      <article class="surface-card">
+        <p class="surface-kicker">Design</p>
+        <h3>Distinctive but lean</h3>
+        <p>A visual signature with constrained dependencies and maintainable code.</p>
+      </article>
+    </section>
+
+    <section class="prose-flow">
+      <h2>Design Goals</h2>
+      <ul>
+        <li>Extreme simplicity in codebase structure and operation.</li>
+        <li>Fast cold-load performance with minimal runtime JavaScript.</li>
+        <li>Long-term maintainability for continuous publishing.</li>
+        <li>A distinctive visual language without heavy front-end overhead.</li>
+      </ul>
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,53 @@
+﻿---
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PostCard from "../../../components/PostCard.astro";
+import { formatTagForPath, getPublishedPosts } from "../../../utils/posts";
+
+interface Props {
+  tag: string;
+  posts: CollectionEntry<"posts">[];
+}
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts("en-US");
+  const grouped = new Map<string, CollectionEntry<"posts">[]>();
+
+  for (const post of posts) {
+    for (const tag of post.data.tags) {
+      const bucket = grouped.get(tag) ?? [];
+      bucket.push(post);
+      grouped.set(tag, bucket);
+    }
+  }
+
+  return [...grouped.entries()].map(([tag, matchedPosts]) => ({
+    params: { tag: formatTagForPath(tag) },
+    props: { tag, posts: matchedPosts },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+---
+
+<BaseLayout
+  title={`Tag: ${tag}`}
+  description={`Posts tagged with ${tag} on DWILL Blog.`}
+>
+  <div class="page-center page-center-wide">
+    <section class="page-intro page-intro-center">
+      <p>Tag</p>
+      <h1>#{tag}</h1>
+      <p>{posts.length} article{posts.length > 1 ? "s" : ""} found.</p>
+    </section>
+
+    <div class="section-head">
+      <h2>Tagged Articles</h2>
+      <a href="/en/tags/">Back to all tags</a>
+    </div>
+
+    <section class="post-grid post-grid-wide">
+      {posts.map((post) => <PostCard post={post} locale="en-US" />)}
+    </section>
+  </div>
+</BaseLayout>

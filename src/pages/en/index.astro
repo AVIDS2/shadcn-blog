@@ -1,0 +1,148 @@
+﻿---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PostCard from "../../components/PostCard.astro";
+import HeroEffectHost from "../../components/hero-effects/HeroEffectHost.astro";
+import { heroEffects } from "../../config/hero-effects";
+import {
+  getAllTagsWithCount,
+  getPublishedPosts,
+  formatTagForPath,
+} from "../../utils/posts";
+import { withLocalePrefix, type SiteLocale } from "../../utils/i18n";
+
+const locale: SiteLocale = "en-US";
+const posts = await getPublishedPosts(locale);
+const latestPosts = posts.slice(0, 6);
+const tags = (await getAllTagsWithCount(locale)).slice(0, 12);
+const featured = posts[0];
+const latestPrimary = latestPosts.slice(0, 1);
+const latestMore = latestPosts.slice(1);
+---
+
+<BaseLayout
+  title="DWILL Blog"
+  description="A static engineering blog focused on performance, architecture, and long-term maintainability."
+>
+  <section class="home-intro" aria-label="Homepage intro">
+    <p class="home-intro-badge">Static Blog System</p>
+    <h1>The Foundation for Your Writing System</h1>
+    <p>
+      Lightweight, migration-friendly, and built for long-term publishing. Deploy on Cloudflare now, move to VPS later.
+    </p>
+    <div class="home-intro-actions">
+      <a class="header-cta" href="/en/posts/">Get Started</a>
+      <a class="home-intro-link" href="/en/about/">View Architecture</a>
+    </div>
+  </section>
+
+  <section class="home-hero-wrap">
+    <HeroEffectHost effect={heroEffects.active} />
+  </section>
+
+  <div class="home-content-shell">
+    <section class="showcase-shell" aria-label="Showcase layout">
+      <div class="showcase-head">
+        <nav class="showcase-tabs" aria-label="Homepage sections">
+          <a class="active" href="/en/">Examples</a>
+          <a href="/en/posts/">Posts</a>
+          <a href="/en/tags/">Tags</a>
+          <a href="/en/about/">About</a>
+        </nav>
+        <div class="showcase-controls">
+          <button type="button" aria-label="Neutral theme">Neutral</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="surface-inline-grid surface-inline-grid-3" aria-label="System overview">
+      <article class="surface-card surface-card-fixed">
+        <p class="surface-kicker">Publishing Mode</p>
+        <h3>Static-First</h3>
+        <p>Markdown source, deterministic build, and host-agnostic output.</p>
+        <div class="surface-meta-row">
+          <span>{posts.length} posts</span>
+          <span>{tags.length} tags</span>
+        </div>
+      </article>
+
+      <article class="surface-card surface-card-fixed">
+        <p class="surface-kicker">Routing</p>
+        <h3>Stable URLs</h3>
+        <p>`/posts/slug/` and `/tags/tag/` with long-term canonical consistency.</p>
+      </article>
+
+      <article class="surface-card surface-card-fixed">
+        <p class="surface-kicker">Operation</p>
+        <h3>Lean Workflow</h3>
+        <p>Write in Markdown, commit, build, deploy. No runtime CMS dependency.</p>
+      </article>
+    </section>
+
+    <section class="home-main-grid">
+      <div class="home-main-col">
+        <section class="section-stack">
+          <div class="section-head">
+            <h2>Latest Writing</h2>
+            <a href="/en/posts/">View all</a>
+          </div>
+          <section class="post-list">
+            {latestPrimary.map((post) => <PostCard post={post} locale={locale} />)}
+          </section>
+        </section>
+      </div>
+
+      <aside class="home-side-col" aria-label="Highlights">
+        {
+          featured && (
+            <section class="section-stack">
+              <div class="section-head">
+                <h2>Featured</h2>
+                <a href={withLocalePrefix(`/posts/${featured.data.translationKey}/`, locale)}>Read</a>
+              </div>
+              <section class="post-list">
+                <PostCard post={featured} locale={locale} />
+              </section>
+            </section>
+          )
+        }
+      </aside>
+    </section>
+
+    {
+      latestMore.length > 0 && (
+        <section class="section-stack">
+          <div class="section-head">
+            <h2>More Writing</h2>
+            <a href="/en/posts/">Browse all</a>
+          </div>
+          <section class="post-grid">
+            {latestMore.map((post) => <PostCard post={post} locale={locale} />)}
+          </section>
+        </section>
+      )
+    }
+
+    {
+      tags.length > 0 && (
+        <section class="section-stack section-stack-wide">
+          <div class="section-head">
+            <h2>Topic Signals</h2>
+            <a href="/en/tags/">Explore</a>
+          </div>
+          <article class="surface-card">
+            <ul class="tag-cloud" aria-label="Popular tags">
+              {tags.map(([tag, count]) => (
+                <li>
+                  <a href={`/en/tags/${formatTagForPath(tag)}/`}>
+                    <span>#{tag}</span>
+                    <small>{count}</small>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </section>
+      )
+    }
+  </div>
+</BaseLayout>

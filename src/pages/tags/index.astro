@@ -1,0 +1,35 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatTagForPath, getAllTagsWithCount } from "../../utils/posts";
+import type { SiteLocale } from "../../utils/i18n";
+
+const locale: SiteLocale = "zh-CN";
+const tags = await getAllTagsWithCount(locale);
+---
+
+<BaseLayout
+  title="标签"
+  description="DWILL Blog 主题标签索引，可按分类快速浏览文章。"
+>
+  <div class="page-center">
+    <section class="page-intro page-intro-center">
+      <p>分类体系</p>
+      <h1>全部标签</h1>
+      <p>当前共收录 {tags.length} 个标签。</p>
+    </section>
+
+    <section class="tag-card-grid" aria-label="Tag index">
+      {
+        tags.map(([tag, count]) => (
+          <article class="surface-card tag-card">
+            <a href={`/tags/${formatTagForPath(tag)}/`}>
+              <p class="surface-kicker">主题</p>
+              <h3>#{tag}</h3>
+              <p>{count} 篇文章</p>
+            </a>
+          </article>
+        ))
+      }
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,271 @@
+﻿---
+import { detectLocaleFromPath, localePrefix, type SiteLocale } from "../utils/i18n";
+
+const currentPath = Astro.url.pathname;
+const locale: SiteLocale = detectLocaleFromPath(currentPath);
+const isZh = locale === "zh-CN";
+const prefix = localePrefix(locale);
+
+const buildHref = (path: string) => {
+  if (!prefix) return path;
+  return path === "/" ? "/en/" : `${prefix}${path}`;
+};
+
+const navItems = [
+  { href: "/", label: isZh ? "首页" : "Home" },
+  { href: "/posts/", label: isZh ? "文章" : "Posts" },
+  { href: "/tags/", label: isZh ? "标签" : "Tags" },
+  { href: "/about/", label: isZh ? "关于" : "About" },
+];
+const searchHref = buildHref("/search/");
+const searchIndexUrl = buildHref("/search-index.json");
+const initialQuery = Astro.url.searchParams.get("q") ?? "";
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <div class="header-left">
+      <a class="brand" href={buildHref("/")} aria-label="DWILL Blog home">
+        <span class="brand-glyph" aria-hidden="true">
+          <i class="stroke s1"></i>
+          <i class="stroke s2"></i>
+          <i class="stroke s3"></i>
+        </span>
+        <span class="brand-word">DWILL</span>
+      </a>
+
+      <nav class="main-nav" aria-label="Main">
+        {
+          navItems.map((item) => {
+            const isHome = item.href === "/";
+            const targetHref = buildHref(item.href);
+            const active = isHome
+              ? currentPath === targetHref || (targetHref === "/en/" && currentPath === "/en")
+              : currentPath.startsWith(targetHref);
+            return (
+              <a href={targetHref} class={active ? "active" : undefined}>{item.label}</a>
+            );
+          })
+        }
+      </nav>
+    </div>
+
+    <form
+      class="header-search"
+      role="search"
+      action={searchHref}
+      method="get"
+      data-header-search
+      data-index-url={searchIndexUrl}
+      data-empty-label={isZh ? "无匹配文章" : "No matches"}
+    >
+      <input
+        type="search"
+        name="q"
+        value={initialQuery}
+        placeholder={isZh ? "搜索文章..." : "Search posts..."}
+        aria-label={isZh ? "搜索文章" : "Search posts"}
+        autocomplete="off"
+        data-header-search-input
+      />
+      <div class="header-search-panel" data-header-search-panel hidden>
+        <ul class="header-search-list" data-header-search-list></ul>
+      </div>
+    </form>
+
+    <div class="header-right">
+      <label class="lang-switch" for="lang-switcher">
+        <select id="lang-switcher" data-lang-switch aria-label="Language switcher">
+          <option value="en-US" selected={locale === "en-US"}>
+            EN
+          </option>
+          <option value="zh-CN" selected={locale === "zh-CN"}>
+            中文
+          </option>
+        </select>
+      </label>
+      <a
+        class="header-link"
+        href="https://github.com"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        GitHub
+      </a>
+      <a class="header-link" href="/rss.xml">RSS</a>
+      <a class="header-cta" href={buildHref("/posts/")}>
+        {isZh ? "新文章" : "New Post"}
+      </a>
+    </div>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const form = document.querySelector("[data-header-search]");
+      if (!(form instanceof HTMLFormElement)) return;
+      const input = form.querySelector("[data-header-search-input]");
+      const panel = form.querySelector("[data-header-search-panel]");
+      const list = form.querySelector("[data-header-search-list]");
+      if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !(list instanceof HTMLElement)) {
+        return;
+      }
+
+      const indexUrl = form.dataset.indexUrl || "/search-index.json";
+      const emptyLabel = form.dataset.emptyLabel || "No matches";
+      const maxItems = 6;
+      let docs = null;
+      let activeIndex = -1;
+      let items = [];
+      let debounceId = 0;
+
+      const esc = (value) =>
+        value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+
+      const normalize = (value) => (value || "").trim().toLowerCase();
+
+      const openPanel = () => {
+        panel.hidden = false;
+        form.classList.add("is-open");
+      };
+
+      const closePanel = () => {
+        panel.hidden = true;
+        form.classList.remove("is-open");
+        activeIndex = -1;
+      };
+
+      const loadIndex = async () => {
+        if (Array.isArray(docs)) return docs;
+        const response = await fetch(indexUrl, { credentials: "same-origin" });
+        if (!response.ok) return [];
+        const payload = await response.json();
+        docs = payload.docs || [];
+        return docs;
+      };
+
+      const score = (doc, q) => {
+        const title = normalize(doc.title);
+        const desc = normalize(doc.description);
+        const tags = normalize((doc.tags || []).join(" "));
+        let points = 0;
+        if (title.startsWith(q)) points += 100;
+        if (title.includes(q)) points += 40;
+        if (desc.includes(q)) points += 16;
+        if (tags.includes(q)) points += 20;
+        return points;
+      };
+
+      const render = (rows) => {
+        if (rows.length === 0) {
+          list.innerHTML = `<li class="header-search-empty">${esc(emptyLabel)}</li>`;
+          openPanel();
+          return;
+        }
+
+        list.innerHTML = rows
+          .map(
+            (row, index) => `
+              <li>
+                <a href="${esc(row.url)}" data-search-item data-index="${index}">
+                  <strong>${esc(row.title)}</strong>
+                  <small>${esc(row.description)}</small>
+                </a>
+              </li>
+            `,
+          )
+          .join("");
+        items = Array.from(list.querySelectorAll("[data-search-item]"));
+        openPanel();
+      };
+
+      const highlight = () => {
+        items.forEach((item, index) => {
+          if (!(item instanceof HTMLElement)) return;
+          item.classList.toggle("is-active", index === activeIndex);
+        });
+      };
+
+      const perform = async () => {
+        const q = normalize(input.value);
+        if (!q) {
+          closePanel();
+          return;
+        }
+
+        const all = await loadIndex();
+        const rows = all
+          .map((doc) => ({ doc, score: score(doc, q) }))
+          .filter((entry) => entry.score > 0)
+          .sort(
+            (a, b) =>
+              b.score - a.score ||
+              new Date(b.doc.date).valueOf() - new Date(a.doc.date).valueOf(),
+          )
+          .slice(0, maxItems)
+          .map((entry) => entry.doc);
+
+        activeIndex = -1;
+        render(rows);
+      };
+
+      input.addEventListener("input", () => {
+        if (debounceId) window.clearTimeout(debounceId);
+        debounceId = window.setTimeout(() => {
+          perform().catch(() => closePanel());
+        }, 120);
+      });
+
+      input.addEventListener("focus", () => {
+        if (input.value.trim()) {
+          perform().catch(() => closePanel());
+        }
+      });
+
+      input.addEventListener("keydown", (event) => {
+        if (panel.hidden || items.length === 0) return;
+
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          activeIndex = (activeIndex + 1) % items.length;
+          highlight();
+          return;
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          activeIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+          highlight();
+          return;
+        }
+        if (event.key === "Enter" && activeIndex >= 0) {
+          const target = items[activeIndex];
+          if (target instanceof HTMLAnchorElement) {
+            event.preventDefault();
+            window.location.assign(target.href);
+          }
+        }
+      });
+
+      list.addEventListener("mousemove", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const anchor = target.closest("[data-search-item]");
+        if (!(anchor instanceof HTMLElement)) return;
+        const next = Number(anchor.dataset.index || "-1");
+        if (Number.isNaN(next)) return;
+        activeIndex = next;
+        highlight();
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (!form.contains(target)) closePanel();
+      });
+    })();
+  </script>
+</header>

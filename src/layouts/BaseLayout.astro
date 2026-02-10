@@ -1,0 +1,134 @@
+﻿---
+import SiteHeader from "../components/SiteHeader.astro";
+import "../styles/global.css";
+import { detectLocaleFromPath, type SiteLocale } from "../utils/i18n";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  type?: "website" | "article";
+  noindex?: boolean;
+  publishedTime?: string;
+  modifiedTime?: string;
+}
+
+const {
+  title = "DWILL Blog",
+  description = "A lightweight high-performance static blog focused on engineering and product thinking.",
+  image,
+  type = "website",
+  noindex = false,
+  publishedTime,
+  modifiedTime,
+} = Astro.props;
+
+const site = Astro.site ?? new URL("https://blog2.dwill.top");
+const canonical = new URL(Astro.url.pathname, site);
+const fullTitle = title.includes("DWILL") ? title : `${title} | DWILL Blog`;
+const imageUrl = image ? new URL(image, site).toString() : undefined;
+const locale: SiteLocale = detectLocaleFromPath(Astro.url.pathname);
+const isZh = locale === "zh-CN";
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="DWILL" />
+    <link rel="canonical" href={canonical.toString()} />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#0f1117" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical.toString()} />
+    <meta property="og:site_name" content="DWILL Blog" />
+    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+
+    <link rel="alternate" type="application/rss+xml" title="DWILL Blog RSS" href="/rss.xml" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <SiteHeader />
+      <main class="container page-main">
+        <slot />
+      </main>
+      <footer class="site-footer">
+        <div class="container footer-inner">
+          <p>© {new Date().getFullYear()} DWILL Blog</p>
+          <p>
+            {
+              isZh
+                ? "基于 Astro 构建。先上 Cloudflare，后迁 VPS，架构保持一致。"
+                : "Built with Astro. Deployed on Cloudflare first, VPS-ready by design."
+            }
+          </p>
+        </div>
+      </footer>
+    </div>
+    <script is:inline>
+      (() => {
+        const STORAGE_KEY = "dwill_lang";
+        const normalizeLang = (value) => (value === "zh-CN" ? "zh-CN" : "en-US");
+        const currentPath = window.location.pathname;
+        const currentLocale = currentPath === "/en" || currentPath.startsWith("/en/") ? "en-US" : "zh-CN";
+        const toTargetPath = (locale) => {
+          const zhOrEn = normalizeLang(locale);
+          const target = zhOrEn === "en-US"
+            ? (currentPath === "/" ? "/en/" : `/en${currentPath}`)
+            : (currentPath.replace(/^\/en(?=\/|$)/, "") || "/");
+          return target;
+        };
+
+        const init = () => {
+          const switcher = document.querySelector("[data-lang-switch]");
+          const saved = normalizeLang(localStorage.getItem(STORAGE_KEY) || currentLocale);
+          localStorage.setItem(STORAGE_KEY, saved);
+
+          if (switcher instanceof HTMLSelectElement) {
+            switcher.value = currentLocale;
+          }
+
+          if (saved !== currentLocale) {
+            const target = toTargetPath(saved);
+            if (target !== currentPath) {
+              window.location.replace(`${target}${window.location.search}${window.location.hash}`);
+              return;
+            }
+          }
+
+          if (switcher instanceof HTMLSelectElement) {
+            switcher.addEventListener("change", () => {
+              const targetLocale = normalizeLang(switcher.value);
+              localStorage.setItem(STORAGE_KEY, targetLocale);
+              const targetPath = toTargetPath(targetLocale);
+              if (targetPath !== currentPath) {
+                window.location.assign(`${targetPath}${window.location.search}${window.location.hash}`);
+              }
+            });
+          }
+        };
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", init, { once: true });
+        } else {
+          init();
+        }
+      })();
+    </script>
+  </body>
+</html>
+

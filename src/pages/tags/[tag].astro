@@ -1,0 +1,54 @@
+﻿---
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PostCard from "../../components/PostCard.astro";
+import { formatTagForPath, getPublishedPosts } from "../../utils/posts";
+
+interface Props {
+  tag: string;
+  posts: CollectionEntry<"posts">[];
+}
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts("zh-CN");
+  const grouped = new Map<string, CollectionEntry<"posts">[]>();
+
+  for (const post of posts) {
+    for (const tag of post.data.tags) {
+      const bucket = grouped.get(tag) ?? [];
+      bucket.push(post);
+      grouped.set(tag, bucket);
+    }
+  }
+
+  return [...grouped.entries()].map(([tag, matchedPosts]) => ({
+    params: { tag: formatTagForPath(tag) },
+    props: { tag, posts: matchedPosts },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+---
+
+<BaseLayout
+  title={`标签：${tag}`}
+  description={`DWILL Blog 中标签 #${tag} 的相关文章。`}
+>
+  <div class="page-center page-center-wide">
+    <section class="page-intro page-intro-center">
+      <p>标签</p>
+      <h1>#{tag}</h1>
+      <p>共找到 {posts.length} 篇相关文章。</p>
+    </section>
+
+    <div class="section-head">
+      <h2>相关文章</h2>
+      <a href="/tags/">返回全部标签</a>
+    </div>
+
+    <section class="post-grid post-grid-wide">
+      {posts.map((post) => <PostCard post={post} locale="zh-CN" />)}
+    </section>
+  </div>
+</BaseLayout>
+
