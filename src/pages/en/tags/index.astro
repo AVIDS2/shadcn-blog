@@ -1,5 +1,6 @@
 ﻿---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PageMasthead from "../../../components/PageMasthead.astro";
 import { formatTagForPath, getAllTagsWithCount } from "../../../utils/posts";
 import type { SiteLocale } from "../../../utils/i18n";
 
@@ -9,14 +10,21 @@ const tags = await getAllTagsWithCount(locale);
 
 <BaseLayout
   title="Tags"
-  description="Topic index for DWILL Blog. Navigate articles by category and signal."
+  description="Topic index for DWILL Blog. Browse articles by subject."
 >
   <div class="page-center">
-    <section class="page-intro page-intro-center">
-      <p>Taxonomy</p>
-      <h1>All Tags</h1>
-      <p>{tags.length} tags currently indexed.</p>
-    </section>
+    <PageMasthead
+      kicker="Tag Index"
+      title="All Tags"
+      subtitle={`${tags.length} tags currently indexed.`}
+      sideKicker="How to use"
+      sideTitle="Pick a topic, then read"
+      sideText="Each tag groups related posts so you can follow one subject end-to-end."
+      metrics={[
+        { value: String(tags.length), label: "Tag count" },
+        { value: "Topic clusters", label: "Structure" },
+      ]}
+    />
 
     <section class="tag-card-grid" aria-label="Tag index">
       {

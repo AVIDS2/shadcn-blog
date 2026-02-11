@@ -1,6 +1,7 @@
 ﻿---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import PostCard from "../../../components/PostCard.astro";
+import PageMasthead from "../../../components/PageMasthead.astro";
 import { getPublishedPosts } from "../../../utils/posts";
 import type { SiteLocale } from "../../../utils/i18n";
 
@@ -13,22 +14,29 @@ const posts = await getPublishedPosts(locale);
   description="All articles from DWILL Blog. Lightweight static publishing with strong SEO and low runtime cost."
 >
   <div class="page-center page-center-wide">
-    <section class="page-intro page-intro-center">
-      <p>Archive</p>
-      <h1>All Posts</h1>
-      <p>{posts.length} published article{posts.length > 1 ? "s" : ""}.</p>
-    </section>
+    <PageMasthead
+      kicker="Library"
+      title="All Posts"
+      subtitle={`${posts.length} published article${posts.length > 1 ? "s" : ""}.`}
+      sideKicker="Cadence"
+      sideTitle="Published in chronological order"
+      sideText="Browse the full archive in date order to track recent updates."
+      metrics={[
+        { value: String(posts.length), label: "Published posts" },
+        { value: "2", label: "Active locales" },
+      ]}
+    />
 
     <section class="surface-inline-grid" aria-label="Post archive summary">
       <article class="surface-card">
-        <p class="surface-kicker">Collection</p>
-        <h3>Chronological feed</h3>
-        <p>All public posts generated as static pages with deterministic routes.</p>
+        <p class="surface-kicker">Organization</p>
+        <h3>Timeline view</h3>
+        <p>All published posts are listed by date for faster scanning.</p>
       </article>
       <article class="surface-card">
         <p class="surface-kicker">Distribution</p>
-        <h3>Search + RSS ready</h3>
-        <p>Sitemap and RSS are generated on build for crawling and subscription workflows.</p>
+        <h3>Search + RSS available</h3>
+        <p>Sitemap and RSS are generated on build for indexing and subscriptions.</p>
       </article>
     </section>
 

@@ -1,0 +1,217 @@
+---
+import type { SiteLocale } from "../utils/i18n";
+import { localePrefix } from "../utils/i18n";
+
+interface Props {
+  locale: SiteLocale;
+}
+
+const { locale } = Astro.props;
+const prefix = localePrefix(locale);
+const searchHref = prefix ? `${prefix}/search/` : "/search/";
+const searchIndexUrl = prefix ? `${prefix}/search-index.json` : "/search-index.json";
+const isZh = locale === "zh-CN";
+---
+
+<section class="article-search-band" aria-label={isZh ? "文章搜索" : "Article search"}>
+  <form
+    class="article-inline-search"
+    role="search"
+    action={searchHref}
+    method="get"
+    data-article-inline-search
+    data-index-url={searchIndexUrl}
+    data-empty-label={isZh ? "无匹配文章" : "No matches"}
+  >
+    <span class="article-inline-search-icon" aria-hidden="true">⌕</span>
+    <input
+      id="article-inline-query"
+      class="article-inline-search-input"
+      type="search"
+      name="q"
+      placeholder={isZh ? "搜索文章..." : "Search for articles..."}
+      aria-label={isZh ? "搜索文章" : "Search articles"}
+      autocomplete="off"
+      data-article-inline-input
+    />
+    <div class="article-inline-search-panel" data-article-inline-panel hidden>
+      <ul class="article-inline-search-list" data-article-inline-list></ul>
+    </div>
+  </form>
+</section>
+
+<script is:inline>
+  (() => {
+    const form = document.querySelector("[data-article-inline-search]");
+    if (!(form instanceof HTMLFormElement)) return;
+    const input = form.querySelector("[data-article-inline-input]");
+    const panel = form.querySelector("[data-article-inline-panel]");
+    const list = form.querySelector("[data-article-inline-list]");
+    if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !(list instanceof HTMLElement)) return;
+
+    const indexUrl = form.dataset.indexUrl || "/search-index.json";
+    const emptyLabel = form.dataset.emptyLabel || "No matches";
+    const maxItems = 8;
+    let docs = null;
+    let activeIndex = -1;
+    let items = [];
+    let debounceId = 0;
+
+    const esc = (value) =>
+      String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+    const normalize = (value) => String(value || "").trim().toLowerCase();
+
+    const openPanel = () => {
+      panel.hidden = false;
+      form.classList.add("is-open");
+    };
+    const closePanel = () => {
+      panel.hidden = true;
+      form.classList.remove("is-open");
+      activeIndex = -1;
+      items = [];
+    };
+
+    const loadIndex = async () => {
+      if (Array.isArray(docs)) return docs;
+      const response = await fetch(indexUrl, { credentials: "same-origin" });
+      if (!response.ok) return [];
+      const payload = await response.json();
+      docs = payload.docs || [];
+      return docs;
+    };
+
+    const score = (doc, q) => {
+      const title = normalize(doc.title);
+      const desc = normalize(doc.description);
+      const tags = normalize((doc.tags || []).join(" "));
+      const content = normalize(doc.content).slice(0, 2200);
+      let points = 0;
+      if (title.startsWith(q)) points += 110;
+      if (title.includes(q)) points += 48;
+      if (tags.includes(q)) points += 22;
+      if (desc.includes(q)) points += 16;
+      if (content.includes(q)) points += 10;
+      return points;
+    };
+
+    const snippet = (text, q) => {
+      const normalized = normalize(text);
+      const idx = normalized.indexOf(q);
+      if (idx < 0) return (text || "").slice(0, 96);
+      const start = Math.max(0, idx - 36);
+      const end = Math.min((text || "").length, idx + q.length + 52);
+      return (start > 0 ? "..." : "") + text.slice(start, end) + (end < text.length ? "..." : "");
+    };
+
+    const render = (rows, q) => {
+      if (!rows.length) {
+        list.innerHTML = `<li class="article-inline-search-empty">${esc(emptyLabel)}</li>`;
+        openPanel();
+        return;
+      }
+      list.innerHTML = rows
+        .map(
+          (row, index) => `
+          <li>
+            <a href="${esc(row.url)}" data-article-inline-item data-index="${index}">
+              <strong>${esc(row.title)}</strong>
+              <small>${esc(snippet(row.description || row.content || "", q))}</small>
+            </a>
+          </li>`,
+        )
+        .join("");
+      items = Array.from(list.querySelectorAll("[data-article-inline-item]"));
+      openPanel();
+    };
+
+    const highlight = () => {
+      items.forEach((item, index) => {
+        if (!(item instanceof HTMLElement)) return;
+        item.classList.toggle("is-active", index === activeIndex);
+      });
+    };
+
+    const perform = async () => {
+      const q = normalize(input.value);
+      if (!q) {
+        closePanel();
+        return;
+      }
+      const all = await loadIndex();
+      const rows = all
+        .map((doc) => ({ doc, score: score(doc, q) }))
+        .filter((entry) => entry.score > 0)
+        .sort(
+          (a, b) =>
+            b.score - a.score ||
+            new Date(b.doc.date).valueOf() - new Date(a.doc.date).valueOf(),
+        )
+        .slice(0, maxItems)
+        .map((entry) => entry.doc);
+      activeIndex = -1;
+      render(rows, q);
+    };
+
+    input.addEventListener("input", () => {
+      if (debounceId) window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(() => {
+        perform().catch(() => closePanel());
+      }, 120);
+    });
+
+    input.addEventListener("focus", () => {
+      if (input.value.trim()) perform().catch(() => closePanel());
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closePanel();
+        return;
+      }
+      if (panel.hidden || items.length === 0) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        activeIndex = (activeIndex + 1) % items.length;
+        highlight();
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        activeIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+        highlight();
+        return;
+      }
+      if (event.key === "Enter" && activeIndex >= 0) {
+        const target = items[activeIndex];
+        if (target instanceof HTMLAnchorElement) {
+          event.preventDefault();
+          window.location.assign(target.href);
+        }
+      }
+    });
+
+    list.addEventListener("mousemove", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const anchor = target.closest("[data-article-inline-item]");
+      if (!(anchor instanceof HTMLElement)) return;
+      const next = Number(anchor.dataset.index || "-1");
+      if (Number.isNaN(next)) return;
+      activeIndex = next;
+      highlight();
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!form.contains(target)) closePanel();
+    });
+  })();
+</script>

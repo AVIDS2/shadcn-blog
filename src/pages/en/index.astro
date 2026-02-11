@@ -28,25 +28,11 @@ const latestMore = latestPosts.slice(1);
   </section>
 
   <div class="home-content-shell">
-    <section class="showcase-shell" aria-label="Showcase layout">
-      <div class="showcase-head">
-        <nav class="showcase-tabs" aria-label="Homepage sections">
-          <a class="active" href="/en/">Examples</a>
-          <a href="/en/posts/">Posts</a>
-          <a href="/en/tags/">Tags</a>
-          <a href="/en/about/">About</a>
-        </nav>
-        <div class="showcase-controls">
-          <button type="button" aria-label="Neutral theme">Neutral</button>
-        </div>
-      </div>
-    </section>
-
     <section class="surface-inline-grid surface-inline-grid-3" aria-label="System overview">
       <article class="surface-card surface-card-fixed">
-        <p class="surface-kicker">Publishing Mode</p>
-        <h3>Static-First</h3>
-        <p>Markdown source, deterministic build, and host-agnostic output.</p>
+        <p class="surface-kicker">Writing & Publishing</p>
+        <h3>Markdown-first</h3>
+        <p>Articles are authored in Markdown and shipped as static pages.</p>
         <div class="surface-meta-row">
           <span>{posts.length} posts</span>
           <span>{tags.length} tags</span>
@@ -54,15 +40,15 @@ const latestMore = latestPosts.slice(1);
       </article>
 
       <article class="surface-card surface-card-fixed">
-        <p class="surface-kicker">Routing</p>
-        <h3>Stable URLs</h3>
-        <p>`/posts/slug/` and `/tags/tag/` with long-term canonical consistency.</p>
+        <p class="surface-kicker">URL Structure</p>
+        <h3>Reference-safe paths</h3>
+        <p>Posts and tags keep deterministic URLs for sharing and indexing.</p>
       </article>
 
       <article class="surface-card surface-card-fixed">
-        <p class="surface-kicker">Operation</p>
-        <h3>Lean Workflow</h3>
-        <p>Write in Markdown, commit, build, deploy. No runtime CMS dependency.</p>
+        <p class="surface-kicker">Delivery</p>
+        <h3>Commit to publish</h3>
+        <p>Write locally, push to Git, build, and deploy with a clear pipeline.</p>
       </article>
     </section>
 
@@ -114,7 +100,7 @@ const latestMore = latestPosts.slice(1);
       tags.length > 0 && (
         <section class="section-stack section-stack-wide">
           <div class="section-head">
-            <h2>Topic Signals</h2>
+            <h2>Popular Tags</h2>
             <a href="/en/tags/">Explore</a>
           </div>
           <article class="surface-card">

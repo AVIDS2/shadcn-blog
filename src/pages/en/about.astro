@@ -1,47 +1,56 @@
 ﻿---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageMasthead from "../../components/PageMasthead.astro";
 ---
 
 <BaseLayout
   title="About"
-  description="About the architecture and operating philosophy behind DWILL Blog."
+  description="How DWILL Blog is written, shipped, and maintained."
 >
   <div class="page-center page-center-narrow">
-    <section class="page-intro page-intro-center">
-      <p>About</p>
-      <h1>System Philosophy</h1>
-    </section>
+    <PageMasthead
+      kicker="About this site"
+      title="How we write and publish"
+      subtitle="This is a production writing system, not a decorative landing page."
+      sideKicker="Working principle"
+      sideTitle="Content first, engineering restraint"
+      sideText="Keep only useful features so writing, shipping, and maintenance stay lightweight."
+      metrics={[
+        { value: "4", label: "Core principles" },
+        { value: "Long-term", label: "Operating goal" },
+      ]}
+    />
 
     <section class="surface-inline-grid" aria-label="About system goals">
       <article class="surface-card">
-        <p class="surface-kicker">Architecture</p>
-        <h3>Static-first publishing</h3>
-        <p>Markdown content, deterministic build, and host-independent output.</p>
+        <p class="surface-kicker">Content source</p>
+        <h3>Markdown as source of truth</h3>
+        <p>Posts and metadata live in one place with versioned history.</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">Migration</p>
-        <h3>Cloudflare now, VPS later</h3>
-        <p>Identical URL and artifact model for deployment portability.</p>
+        <p class="surface-kicker">Delivery</p>
+        <h3>Build to static output</h3>
+        <p>Push code, build once, and deploy the same artifact anywhere.</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">Performance</p>
-        <h3>Low-runtime strategy</h3>
-        <p>Minimal JS on content pages and static route pre-generation.</p>
+        <p class="surface-kicker">Reader experience</p>
+        <h3>Fast and readable</h3>
+        <p>Content pages keep runtime overhead low to prioritize reading flow.</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">Design</p>
-        <h3>Distinctive but lean</h3>
-        <p>A visual signature with constrained dependencies and maintainable code.</p>
+        <p class="surface-kicker">Longevity</p>
+        <h3>Clear structure, easy migration</h3>
+        <p>Stable routing and layered components keep future changes manageable.</p>
       </article>
     </section>
 
     <section class="prose-flow">
-      <h2>Design Goals</h2>
+      <h2>Practical Focus</h2>
       <ul>
-        <li>Extreme simplicity in codebase structure and operation.</li>
-        <li>Fast cold-load performance with minimal runtime JavaScript.</li>
-        <li>Long-term maintainability for continuous publishing.</li>
-        <li>A distinctive visual language without heavy front-end overhead.</li>
+        <li>Make publishing straightforward with minimal context switching.</li>
+        <li>Keep URLs stable for sharing, indexing, and long-term references.</li>
+        <li>Optimize for reading speed and clarity over decorative complexity.</li>
+        <li>Keep components modular so visuals can evolve without rewrites.</li>
       </ul>
     </section>
   </div>

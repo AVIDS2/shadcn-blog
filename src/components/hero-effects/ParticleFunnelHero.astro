@@ -29,23 +29,23 @@ const isEn = locale === "en-US";
 
   <div class="hero-action-grid" data-hero-actions>
     <article>
-      <h2>MISSION</h2>
-      <p>{isEn ? "Blog Home" : "博客首页"}</p>
-      <a href={isEn ? "/en/" : "/"}>GO</a>
+      <h2>HOME</h2>
+      <p>{isEn ? "Landing page" : "站点首页"}</p>
+      <a href={isEn ? "/en/" : "/"}>{isEn ? "Open" : "进入"}</a>
     </article>
     <article class="is-primary">
-      <h2>IDENTITY</h2>
-      <p>{isEn ? "Content & System" : "内容与系统"}</p>
-      <a href={isEn ? "/en/posts/" : "/posts/"}>GO</a>
+      <h2>POSTS</h2>
+      <p>{isEn ? "All articles" : "全部文章"}</p>
+      <a href={isEn ? "/en/posts/" : "/posts/"}>{isEn ? "Open" : "进入"}</a>
     </article>
     <article>
-      <h2>SOLUTION</h2>
-      <p>{isEn ? "Markdown Writing" : "Markdown 写作"}</p>
-      <a href={isEn ? "/en/tags/" : "/tags/"}>GO</a>
+      <h2>TAGS</h2>
+      <p>{isEn ? "Topic index" : "主题索引"}</p>
+      <a href={isEn ? "/en/tags/" : "/tags/"}>{isEn ? "Open" : "进入"}</a>
     </article>
   </div>
 
-  <script is:inline>
+  <script is:inline data-astro-rerun>
     (() => {
       const root = document.querySelector("[data-hero-root]");
       const canvas = root?.querySelector("[data-hero-canvas]");
@@ -61,6 +61,7 @@ const isEn = locale === "en-US";
         root.classList.add("is-reduced");
         fallbackTitle.classList.add("is-visible");
         heroCopy.classList.add("is-visible");
+        heroCopy.style.setProperty("--copy-progress", "1");
         actionGrid.classList.add("is-visible");
         actionItems.forEach((item) => item.classList.add("is-on"));
         return;
@@ -71,6 +72,7 @@ const isEn = locale === "en-US";
         root.classList.add("is-reduced");
         fallbackTitle.classList.add("is-visible");
         heroCopy.classList.add("is-visible");
+        heroCopy.style.setProperty("--copy-progress", "1");
         actionGrid.classList.add("is-visible");
         actionItems.forEach((item) => item.classList.add("is-on"));
         return;
@@ -91,6 +93,7 @@ const isEn = locale === "en-US";
       const P3 = 0.66;
       const P4 = 0.9;
       const FUNNEL_START = P2;
+      const GEOMETRY_MODE = "cylinder-inner-diamond";
 
       const COLORS = ["#2166d1", "#f28e2b", "#e15759", "#76b041", "#6f49c7", "#27a4c9", "#f0d23f"];
       const TEXT_COLORS = ["#1a2235", "#2c4575", "#5c7598", "#8f7d50", "#839f5e", "#4a8ea3", "#7054a8"];
@@ -124,6 +127,14 @@ const isEn = locale === "en-US";
       const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
       const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
       const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+      const AMBIENT_SHAPES = [
+        { w: 0.34, type: "sphere" },
+        { w: 0.2, type: "cube" },
+        { w: 0.14, type: "diamond" },
+        { w: 0.12, type: "cone" },
+        { w: 0.1, type: "poly6" },
+        { w: 0.1, type: "cylinder" },
+      ];
 
       function setCanvasSize() {
         const rect = root.getBoundingClientRect();
@@ -226,7 +237,8 @@ const isEn = locale === "en-US";
       function buildAmbientParticles() {
         ambientParticles.length = 0;
         const edgeGutter = Math.max(EDGE_GUTTER_MIN, width * 0.03);
-        const maxAmbientRadius = Math.max(100, Math.min(cx - edgeGutter, cy - edgeGutter) * 0.96);
+        const maxRadiusX = Math.max(120, cx - edgeGutter - 10);
+        const maxRadiusY = Math.max(90, cy - edgeGutter * 0.85);
         for (let i = 0; i < AMBIENT_COUNT; i += 1) {
           const sizeBucket = weightedPick([
             { w: 0.74, min: 1.1, max: 2.8 },
@@ -234,10 +246,15 @@ const isEn = locale === "en-US";
             { w: 0.06, min: 5.6, max: 10.8 },
           ]);
           const depth = Math.pow(Math.random(), 1.45);
+          const shapePick = weightedPick(AMBIENT_SHAPES);
+          const radiusBase = randomRange(0.22, 0.98);
+          const xStretch = randomRange(1.18, 1.42);
+          const yStretch = randomRange(0.58, 0.84);
 
           ambientParticles.push({
             angle: randomRange(0, Math.PI * 2),
-            radius: randomRange(maxAmbientRadius * 0.22, maxAmbientRadius * 0.98),
+            radiusX: maxRadiusX * radiusBase * xStretch,
+            radiusY: maxRadiusY * radiusBase * yStretch,
             spin: randomRange(0.0002, 0.00065) * (Math.random() > 0.5 ? 1 : -1),
             drift: randomRange(-26, 26),
             size: randomRange(sizeBucket.min, sizeBucket.max),
@@ -246,7 +263,94 @@ const isEn = locale === "en-US";
             zPhase: randomRange(0, Math.PI * 2),
             zSpeed: randomRange(0.00045, 0.001),
             color: COLORS[i % COLORS.length],
+            shape: shapePick.type,
+            rotation: randomRange(0, Math.PI * 2),
+            rotationSpeed: randomRange(-0.0013, 0.0013),
           });
+        }
+      }
+
+      function drawAmbientShape(x, y, size, shape, angle) {
+        switch (shape) {
+          case "cube": {
+            const s = Math.max(1, size * 1.52);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillRect(-s / 2, -s / 2, s, s);
+            ctx.restore();
+            return;
+          }
+          case "diamond": {
+            const s = Math.max(1.1, size * 1.82);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, -s * 0.7);
+            ctx.lineTo(s * 0.56, 0);
+            ctx.lineTo(0, s * 0.7);
+            ctx.lineTo(-s * 0.56, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            return;
+          }
+          case "cone": {
+            const h = Math.max(1.4, size * 2.2);
+            const w = h * 0.92;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, -h * 0.64);
+            ctx.lineTo(w * 0.52, h * 0.56);
+            ctx.lineTo(-w * 0.52, h * 0.56);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            return;
+          }
+          case "poly6": {
+            const r = Math.max(1.1, size * 1.5);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            for (let i = 0; i < 6; i += 1) {
+              const a = (i / 6) * Math.PI * 2;
+              const px = Math.cos(a) * r;
+              const py = Math.sin(a) * r;
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            return;
+          }
+          case "cylinder": {
+            const r = Math.max(1.2, size * 1.22);
+            const h = r * 1.85;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.ellipse(0, -h * 0.3, r, r * 0.45, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(-r, -h * 0.3, r * 2, h * 0.72);
+            ctx.beginPath();
+            ctx.ellipse(0, h * 0.42, r, r * 0.45, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+          }
+          case "sphere":
+          default: {
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
 
@@ -305,46 +409,81 @@ const isEn = locale === "en-US";
         ctx.restore();
       }
 
-      function funnelPoint(u, v, liftProgress, elapsed) {
-        const outerRadius = width * 0.44;
-        const neckRadius = width * 0.108;
-        const cylinderRadius = width * 0.09;
-        const absV = Math.abs(v);
-        const smoothProfile = absV * absV * (3 - 2 * absV);
-        const hourglassRadius = lerp(neckRadius, outerRadius, Math.pow(smoothProfile, 0.92));
-        const morphProgress = clamp((liftProgress - 0.2) / 0.8, 0, 1);
-        const radius = lerp(cylinderRadius, hourglassRadius, easeOutCubic(morphProgress));
+      function projectPoint(px, py, pz, liftProgress, elapsed) {
+        const t = elapsed * 0.001;
+        const growth = easeInOutCubic(liftProgress);
+        const orbitAmp = easeOutCubic(liftProgress);
+        const spin = elapsed * 0.00008;
+        // Keep yaw continuously rotating, but avoid full tumble on pitch/roll.
+        // Full continuous tumble on all axes causes wireframe self-overlap artifacts.
+        const yaw = (t * 0.33 + Math.sin(t * 0.31) * 0.12) * orbitAmp;
+        const cosSpin = Math.cos(spin);
+        const sinSpin = Math.sin(spin);
+        const sx = px * cosSpin - pz * sinSpin;
+        const sy = py;
+        const sz = px * sinSpin + pz * cosSpin;
 
-        const yExtent = lerp(20, Math.min(height * 0.62, 440), easeOutCubic(liftProgress));
-        const spin = elapsed * 0.000055;
-        const yaw = Math.sin(elapsed * 0.00012) * 0.032;
-        const angle = u + spin;
-
-        const px = Math.cos(angle) * radius;
-        const py = v * yExtent;
-        const pz = Math.sin(angle) * radius;
-
-        const pitch = lerp(-1.08, -0.56, easeOutCubic(liftProgress));
+        const pitchBase = lerp(-1.08, -0.56, growth);
+        const pitch = pitchBase + Math.sin(t * 0.44) * 0.22 * orbitAmp;
         const cosX = Math.cos(pitch);
         const sinX = Math.sin(pitch);
-        const ry = py * cosX - pz * sinX;
-        const rz1 = py * sinX + pz * cosX;
+        const ry = sy * cosX - sz * sinX;
+        const rz1 = sy * sinX + sz * cosX;
 
         const cosY = Math.cos(yaw);
         const sinY = Math.sin(yaw);
-        const rx = px * cosY + rz1 * sinY;
-        const rz = -px * sinY + rz1 * cosY;
+        const rx = sx * cosY + rz1 * sinY;
+        const rz = -sx * sinY + rz1 * cosY;
 
-        const zoom = lerp(0.3, 1.06, easeOutCubic(liftProgress));
-        const zTranslate = lerp(-760, -110, easeOutCubic(liftProgress));
+        const roll = Math.sin(t * 0.29) * 0.07 * orbitAmp;
+        const cosZ = Math.cos(roll);
+        const sinZ = Math.sin(roll);
+        const fx = rx * cosZ - ry * sinZ;
+        const fy = rx * sinZ + ry * cosZ;
+
+        const zoom = lerp(0.76, 1.02, growth);
+        const zTranslate = lerp(-430, -130, growth);
         const camera = 1360;
         const zWorld = rz * zoom + zTranslate;
         const perspective = camera / Math.max(200, camera - zWorld);
 
         return {
-          x: cx + rx * zoom * perspective,
-          y: cy + ry * zoom * perspective,
+          x: cx + fx * zoom * perspective,
+          y: cy + fy * zoom * perspective,
         };
+      }
+
+      function cylinderPoint(u, v, liftProgress, elapsed) {
+        const base = Math.min(width, height);
+        const aspect = width / Math.max(1, height);
+        const wideT = clamp((aspect - 1) / 1.2, 0, 1);
+        const diameterScale = 1.6;
+        const growth = easeInOutCubic(liftProgress);
+
+        const radiusTarget = base * lerp(0.42, 0.34, wideT) * diameterScale;
+        const radius = radiusTarget * growth;
+        const yExtentTarget = Math.min(height * 0.62, base * lerp(0.84, 0.96, wideT));
+        const yExtent = yExtentTarget * growth;
+
+        const angle = u;
+        return projectPoint(Math.cos(angle) * radius, v * yExtent, Math.sin(angle) * radius, liftProgress, elapsed);
+      }
+
+      function diamondPoint(u, v, liftProgress, elapsed) {
+        const base = Math.min(width, height);
+        const aspect = width / Math.max(1, height);
+        const wideT = clamp((aspect - 1) / 1.2, 0, 1);
+        const growth = easeInOutCubic(liftProgress);
+
+        const yExtentTarget = Math.min(height * 0.44, base * lerp(0.62, 0.72, wideT));
+        const yExtent = yExtentTarget * growth;
+        const peakRadiusTarget = base * lerp(0.28, 0.24, wideT);
+        const peakRadius = peakRadiusTarget * growth;
+        const absV = Math.abs(v);
+        const radial = peakRadius * (1 - absV); // octahedron-like linear profile
+        const angle = u;
+
+        return projectPoint(Math.cos(angle) * radial, v * yExtent, Math.sin(angle) * radial, liftProgress, elapsed);
       }
 
       function drawFunnel(phase, elapsed) {
@@ -359,12 +498,12 @@ const isEn = locale === "en-US";
         ctx.save();
         ctx.strokeStyle = "rgba(119, 128, 144, 0.4)";
         ctx.lineWidth = 0.9;
-        ctx.globalAlpha = (0.09 + showProgress * 0.58) * lerp(0.85, 1, burstEnergy);
+        ctx.globalAlpha = (showProgress * 0.66) * lerp(0.85, 1, burstEnergy);
 
         if (liftProgress < 0.3) {
           const ringT = liftProgress / 0.3;
-          const rr = lerp(width * 0.016, width * 0.08, easeOutCubic(ringT));
-          ctx.globalAlpha = lerp(0.56, 0.2, ringT);
+          const rr = lerp(0, width * 0.08, easeOutCubic(ringT));
+          ctx.globalAlpha = lerp(0, 0.24, ringT) * showProgress;
           ctx.strokeStyle = "rgba(115, 124, 142, 0.5)";
           ctx.lineWidth = 1.2;
           ctx.beginPath();
@@ -372,42 +511,113 @@ const isEn = locale === "en-US";
           ctx.stroke();
         }
 
-        for (let ui = 0; ui < uCount; ui += 1) {
-          const u = (ui / uCount) * Math.PI * 2;
-          ctx.beginPath();
-          for (let vi = 0; vi <= vCount; vi += 1) {
-            const v = -1 + (vi / vCount) * 2;
-            const p = funnelPoint(u, v, liftProgress, elapsed);
-            if (vi === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-          }
-          ctx.stroke();
-        }
-
-        for (let vi = 0; vi <= vCount; vi += 2) {
-          const v = -1 + (vi / vCount) * 2;
-          ctx.beginPath();
-          for (let ui = 0; ui <= uCount; ui += 1) {
+        if (GEOMETRY_MODE === "cylinder-inner-diamond") {
+          // Outer cylinder shell
+          for (let ui = 0; ui < uCount; ui += 1) {
             const u = (ui / uCount) * Math.PI * 2;
-            const p = funnelPoint(u, v, liftProgress, elapsed);
-            if (ui === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
+            ctx.beginPath();
+            for (let vi = 0; vi <= vCount; vi += 1) {
+              const v = -1 + (vi / vCount) * 2;
+              const p = cylinderPoint(u, v, liftProgress, elapsed);
+              if (vi === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
           }
+
+          for (let vi = 0; vi <= vCount; vi += 2) {
+            const v = -1 + (vi / vCount) * 2;
+            ctx.beginPath();
+            for (let ui = 0; ui <= uCount; ui += 1) {
+              const u = (ui / uCount) * Math.PI * 2;
+              const p = cylinderPoint(u, v, liftProgress, elapsed);
+              if (ui === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+          }
+
+          // Inner diamond mesh
+          ctx.globalAlpha *= 0.92;
+          for (let ui = 0; ui < uCount; ui += 1) {
+            const u = (ui / uCount) * Math.PI * 2;
+            ctx.beginPath();
+            for (let vi = 0; vi <= vCount; vi += 1) {
+              const v = -1 + (vi / vCount) * 2;
+              const p = diamondPoint(u, v, liftProgress, elapsed);
+              if (vi === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+          }
+
+          for (let vi = 2; vi < vCount; vi += 3) {
+            const v = -1 + (vi / vCount) * 2;
+            ctx.beginPath();
+            for (let ui = 0; ui <= uCount; ui += 1) {
+              const u = (ui / uCount) * Math.PI * 2;
+              const p = diamondPoint(u, v, liftProgress, elapsed);
+              if (ui === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+          }
+
+          // Central spine: connect top and bottom diamond apex through the core.
+          const apexTop = diamondPoint(0, -1, liftProgress, elapsed);
+          const apexBottom = diamondPoint(0, 1, liftProgress, elapsed);
+          const dx = apexBottom.x - apexTop.x;
+          const dy = apexBottom.y - apexTop.y;
+          const len = Math.max(1, Math.hypot(dx, dy));
+          const ux = dx / len;
+          const uy = dy / len;
+          const extend = Math.max(width, height) * 1.25;
+          const exTopX = apexTop.x - ux * extend;
+          const exTopY = apexTop.y - uy * extend;
+          const exBottomX = apexBottom.x + ux * extend;
+          const exBottomY = apexBottom.y + uy * extend;
+
+          ctx.globalAlpha = Math.min(1, ctx.globalAlpha * 0.9);
+          ctx.strokeStyle = "rgba(66, 76, 98, 0.42)";
+          ctx.lineWidth = 1.35;
+          ctx.lineCap = "round";
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = "rgba(86, 98, 122, 0.12)";
+          ctx.beginPath();
+          ctx.moveTo(exTopX, exTopY);
+          ctx.lineTo(exBottomX, exBottomY);
           ctx.stroke();
+          ctx.shadowBlur = 0;
+        } else {
+          for (let ui = 0; ui < uCount; ui += 1) {
+            const u = (ui / uCount) * Math.PI * 2;
+            ctx.beginPath();
+            for (let vi = 0; vi <= vCount; vi += 1) {
+              const v = -1 + (vi / vCount) * 2;
+              const p = cylinderPoint(u, v, liftProgress, elapsed);
+              if (vi === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+          }
         }
 
-        ctx.globalAlpha = 0.22 + showProgress * 0.44;
-        ctx.fillStyle = "rgba(19, 24, 35, 0.78)";
-        for (let ui = 0; ui < uCount; ui += 1) {
-          const u = (ui / uCount) * Math.PI * 2;
-          const top = funnelPoint(u, -1, liftProgress, elapsed);
-          const bottom = funnelPoint(u, 1, liftProgress, elapsed);
-          ctx.beginPath();
-          ctx.arc(top.x, top.y, 1.8, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(bottom.x, bottom.y, 1.8, 0, Math.PI * 2);
-          ctx.fill();
+        if (liftProgress > 0.09) {
+          const nodeReveal = clamp((liftProgress - 0.09) / 0.18, 0, 1);
+          const nodeSize = lerp(1.2, 1.8, nodeReveal);
+          ctx.globalAlpha = showProgress * 0.38 * nodeReveal;
+          ctx.fillStyle = "rgba(76, 86, 106, 0.72)";
+          for (let ui = 0; ui < uCount; ui += 1) {
+            const u = (ui / uCount) * Math.PI * 2;
+            const top = cylinderPoint(u, -1, liftProgress, elapsed);
+            const bottom = cylinderPoint(u, 1, liftProgress, elapsed);
+            ctx.beginPath();
+            ctx.arc(top.x, top.y, nodeSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(bottom.x, bottom.y, nodeSize, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
 
         ctx.restore();
@@ -443,14 +653,16 @@ const isEn = locale === "en-US";
             size = lerp(p.size, 0, t);
           } else if (phase < P3) {
             const t = easeInOutSine((phase - P2) / (P3 - P2));
-            x = lerp(p.centerX, p.burstX, t);
-            y = lerp(p.centerY, p.burstY, t);
+            const driftAmp = lerp(0, 16, t);
+            x = lerp(p.centerX, p.burstX, t) + Math.cos(p.seed + elapsed * 0.0018) * driftAmp;
+            y = lerp(p.centerY, p.burstY, t) + Math.sin(p.seed + elapsed * 0.0021) * driftAmp;
             alpha = lerp(0.04, 0.8, t);
             size = lerp(p.size * 0.45, p.size * 1.15, t);
           } else if (phase < P4) {
             const t = easeInOutSine((phase - P3) / (P4 - P3));
-            x = p.burstX + Math.cos(p.seed + elapsed * 0.0018) * 16;
-            y = p.burstY + Math.sin(p.seed + elapsed * 0.0021) * 16;
+            const driftAmp = lerp(16, 15, t);
+            x = p.burstX + Math.cos(p.seed + elapsed * 0.0018) * driftAmp;
+            y = p.burstY + Math.sin(p.seed + elapsed * 0.0021) * driftAmp;
             alpha = lerp(0.8, 0.24, t);
             size = lerp(p.size * 1.1, p.size * 0.8, t);
           } else {
@@ -482,17 +694,18 @@ const isEn = locale === "en-US";
         const visibility = clamp((phase - P2) / 0.15, 0, 1);
         if (visibility <= 0) return;
         const edgeGutter = Math.max(EDGE_GUTTER_MIN, width * 0.03);
-        const maxDX = cx - edgeGutter;
-        const maxDY = cy - edgeGutter * 0.8;
+        const maxDX = cx - edgeGutter * 0.8;
+        const maxDY = cy - edgeGutter * 0.95;
 
         for (let i = 0; i < ambientParticles.length; i += 1) {
           const p = ambientParticles[i];
-          const radius = p.radius + Math.sin(elapsed * 0.00095 + p.drift) * 18;
+          const radiusX = p.radiusX + Math.sin(elapsed * 0.00095 + p.drift) * 26;
+          const radiusY = p.radiusY + Math.cos(elapsed * 0.00103 + p.drift * 0.85) * 10;
           const angle = p.angle + elapsed * p.spin;
           const z = p.depth + Math.sin(elapsed * p.zSpeed + p.zPhase) * 0.24;
           const perspective = lerp(0.62, 1.34, clamp(z, 0, 1));
-          const rawDX = Math.cos(angle) * radius * perspective;
-          const rawDY = Math.sin(angle) * radius * 0.32 * perspective + p.drift;
+          const rawDX = Math.cos(angle) * radiusX * perspective;
+          const rawDY = Math.sin(angle) * radiusY * 0.96 * perspective + p.drift;
 
           // Soft-limit to avoid hard edge stacking (which creates straight bands).
           const overX = Math.abs(rawDX) / Math.max(1, maxDX);
@@ -502,12 +715,11 @@ const isEn = locale === "en-US";
           const y = cy + rawDY * compress;
           const size = p.size * perspective;
           const alpha = p.alpha * lerp(0.55, 1, clamp(z, 0, 1));
+          const rotation = p.rotation + elapsed * p.rotationSpeed;
 
           ctx.globalAlpha = alpha * visibility;
           ctx.fillStyle = p.color;
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.fill();
+          drawAmbientShape(x, y, size, p.shape, rotation);
         }
 
         ctx.globalAlpha = 1;
@@ -546,11 +758,15 @@ const isEn = locale === "en-US";
         const phase = settledMode ? P4 : clamp(elapsed / CYCLE_MS, 0, 1);
 
         const showActions = phase >= 0.79;
-        const showHeroCopy = phase >= 0.2;
+        const copyStart = 0.22;
+        const copyEnd = 0.46;
+        const copyProgress = easeInOutCubic(clamp((phase - copyStart) / (copyEnd - copyStart), 0, 1));
+        const showHeroCopy = copyProgress > 0.01;
         const cardProgress = clamp((phase - 0.79) / 0.14, 0, 1);
         fallbackTitle.classList.remove("is-visible");
         fallbackTitle.style.opacity = "0";
 
+        heroCopy.style.setProperty("--copy-progress", String(copyProgress));
         heroCopy.classList.toggle("is-visible", showHeroCopy);
         actionGrid.classList.toggle("is-visible", showActions);
         const thresholds = [0, 0.33, 0.66];
@@ -602,15 +818,14 @@ const isEn = locale === "en-US";
       initScene();
       rafId = window.requestAnimationFrame(frame);
 
-      window.addEventListener(
-        "beforeunload",
-        () => {
-          stop();
-          resizeObserver.disconnect();
-          document.removeEventListener("visibilitychange", visibilityHandler);
-        },
-        { once: true },
-      );
+      const cleanup = () => {
+        stop();
+        resizeObserver.disconnect();
+        document.removeEventListener("visibilitychange", visibilityHandler);
+      };
+
+      document.addEventListener("astro:before-swap", cleanup, { once: true });
+      window.addEventListener("beforeunload", cleanup, { once: true });
     })();
   </script>
 </section>

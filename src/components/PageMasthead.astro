@@ -1,0 +1,43 @@
+---
+interface MetricItem {
+  label: string;
+  value: string;
+}
+
+interface Props {
+  kicker: string;
+  title: string;
+  subtitle?: string;
+  sideKicker: string;
+  sideTitle: string;
+  sideText: string;
+  metrics?: MetricItem[];
+}
+
+const { kicker, title, subtitle, sideKicker, sideTitle, sideText, metrics = [] } = Astro.props;
+---
+
+<section class="page-masthead" aria-label="Page masthead">
+  <div class="page-masthead-main">
+    <p class="page-masthead-kicker">{kicker}</p>
+    <h1>{title}</h1>
+    {subtitle && <p class="page-masthead-subtitle">{subtitle}</p>}
+  </div>
+
+  <aside class="page-masthead-side">
+    <p class="page-masthead-side-kicker">{sideKicker}</p>
+    <h2>{sideTitle}</h2>
+    <p>{sideText}</p>
+  </aside>
+
+  {metrics.length > 0 && (
+    <div class="page-masthead-metrics" aria-label="Page metrics">
+      {metrics.map((item) => (
+        <span>
+          <strong>{item.value}</strong>
+          <em>{item.label}</em>
+        </span>
+      ))}
+    </div>
+  )}
+</section>

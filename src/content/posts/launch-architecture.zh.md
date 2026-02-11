@@ -2,7 +2,7 @@
 locale: "zh-CN"
 translationKey: "launch-architecture"
 title: "发布说明：静态优先博客架构"
-description: "为什么这个博客坚持静态优先，以获得性能、可维护性和低迁移成本。"
+description: "为什么这个博客坚持静态优先，以获得性能、可维护性和稳定交付。"
 date: "2026-02-09"
 tags: ["architecture", "performance", "astro", "seo"]
 draft: false
@@ -16,7 +16,7 @@ draft: false
 | --- | --- | --- |
 | 长期维护 | Markdown 作为内容源 | 内容和基础设施解耦 |
 | 性能稳定 | 输出纯静态 HTML | 运行时开销最低 |
-| 易于迁移 | 构建统一到 `dist/` | 先 Cloudflare，后 VPS |
+| 交付一致 | 构建统一到 `dist/` | 与部署环境解耦，发布路径稳定 |
 | 搜索可见 | Sitemap + RSS + 结构化数据 | 收录与再抓取更稳定 |
 
 ## Performance Model

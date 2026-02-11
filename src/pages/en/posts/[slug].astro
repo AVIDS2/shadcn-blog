@@ -2,6 +2,7 @@
 import type { CollectionEntry } from "astro:content";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import EChartsLoader from "../../../components/EChartsLoader.astro";
+import ArticleInlineSearch from "../../../components/ArticleInlineSearch.astro";
 import { estimateReadingTime, formatDate } from "../../../utils/format";
 import { formatTagForPath, getPublishedPosts } from "../../../utils/posts";
 import { withLocalePrefix, type SiteLocale } from "../../../utils/i18n";
@@ -55,6 +56,8 @@ const articleJsonLd = {
   modifiedTime={post.data.updated?.toISOString()}
 >
   <article class="article-shell">
+    <ArticleInlineSearch locale={locale} />
+
     <div class="article-main">
       <header class="article-header">
         <p class="article-meta">{formatDate(post.data.date)} - {readingTime} min read</p>

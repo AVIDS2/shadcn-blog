@@ -3,40 +3,87 @@
     document.querySelectorAll<HTMLElement>(".chart-frame[data-echarts-option]"),
   );
 
-  if (targets.length > 0) {
-    const echarts = await import("echarts");
-    const chartInstances: Array<{ resize: () => void; dispose: () => void }> = [];
-    const resizeHandlers: Array<() => void> = [];
-
-    for (const target of targets) {
-      const optionString = target.getAttribute("data-echarts-option");
-      if (!optionString) continue;
-
-      try {
-        const option = JSON.parse(decodeURIComponent(optionString));
-        const chart = echarts.init(target, null, { renderer: "svg" });
-        chart.setOption(option);
-        chartInstances.push(chart);
-
-        const handleResize = () => chart.resize();
-        window.addEventListener("resize", handleResize);
-        resizeHandlers.push(handleResize);
-      } catch (error) {
-        console.error("Failed to render echarts block:", error);
+  const loadScript = (src: string) =>
+    new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-echarts-cdn="${src}"]`);
+      if (existing) {
+        existing.addEventListener("load", () => resolve(undefined), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Failed to load ECharts CDN script")), {
+          once: true,
+        });
+        return;
       }
-    }
 
-    window.addEventListener(
-      "beforeunload",
-      () => {
-        for (const resizeHandler of resizeHandlers) {
-          window.removeEventListener("resize", resizeHandler);
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.defer = true;
+      script.dataset.echartsCdn = src;
+      script.onload = () => resolve(undefined);
+      script.onerror = () => reject(new Error("Failed to load ECharts CDN script"));
+      document.head.appendChild(script);
+    });
+
+  const loadEcharts = async () => {
+    try {
+      const mod = await import("echarts");
+      return mod;
+    } catch (error) {
+      console.warn("[ECharts] Local dynamic import failed, falling back to CDN.", error);
+
+      const echartsOnWindow = (window as Window & { echarts?: unknown }).echarts;
+      if (echartsOnWindow) return echartsOnWindow;
+      await loadScript("https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js");
+      const fallback = (window as Window & { echarts?: unknown }).echarts;
+      if (!fallback) throw new Error("CDN fallback loaded but window.echarts is missing.");
+      return fallback;
+    }
+  };
+
+  if (targets.length > 0) {
+    try {
+      const echarts = (await loadEcharts()) as {
+        init: (target: HTMLElement, theme?: unknown, opts?: { renderer?: string }) => {
+          setOption: (option: unknown) => void;
+          resize: () => void;
+          dispose: () => void;
+        };
+      };
+      const chartInstances: Array<{ resize: () => void; dispose: () => void }> = [];
+      const resizeHandlers: Array<() => void> = [];
+
+      for (const target of targets) {
+        const optionString = target.getAttribute("data-echarts-option");
+        if (!optionString) continue;
+
+        try {
+          const option = JSON.parse(decodeURIComponent(optionString));
+          const chart = echarts.init(target, null, { renderer: "svg" });
+          chart.setOption(option);
+          chartInstances.push(chart);
+
+          const handleResize = () => chart.resize();
+          window.addEventListener("resize", handleResize);
+          resizeHandlers.push(handleResize);
+        } catch (error) {
+          console.error("Failed to render echarts block:", error);
         }
-        for (const chart of chartInstances) {
-          chart.dispose();
-        }
-      },
-      { once: true },
-    );
+      }
+
+      window.addEventListener(
+        "beforeunload",
+        () => {
+          for (const resizeHandler of resizeHandlers) {
+            window.removeEventListener("resize", resizeHandler);
+          }
+          for (const chart of chartInstances) {
+            chart.dispose();
+          }
+        },
+        { once: true },
+      );
+    } catch (error) {
+      console.error("[ECharts] Failed to initialize charts:", error);
+    }
   }
 </script>

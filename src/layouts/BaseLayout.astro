@@ -1,5 +1,6 @@
 ﻿---
 import SiteHeader from "../components/SiteHeader.astro";
+import { ClientRouter } from "astro:transitions";
 import "../styles/global.css";
 import { detectLocaleFromPath, type SiteLocale } from "../utils/i18n";
 
@@ -29,6 +30,7 @@ const fullTitle = title.includes("DWILL") ? title : `${title} | DWILL Blog`;
 const imageUrl = image ? new URL(image, site).toString() : undefined;
 const locale: SiteLocale = detectLocaleFromPath(Astro.url.pathname);
 const isZh = locale === "zh-CN";
+const isHomePage = Astro.url.pathname === "/" || Astro.url.pathname === "/en/";
 ---
 
 <!doctype html>
@@ -61,9 +63,10 @@ const isZh = locale === "zh-CN";
     <link rel="alternate" type="application/rss+xml" title="DWILL Blog RSS" href="/rss.xml" />
   </head>
   <body>
+    <ClientRouter />
     <div class="site-shell">
       <SiteHeader />
-      <main class="container page-main">
+      <main class:list={["container", "page-main", { "page-main-home": isHomePage }]}>
         <slot />
       </main>
       <footer class="site-footer">
@@ -72,8 +75,8 @@ const isZh = locale === "zh-CN";
           <p>
             {
               isZh
-                ? "基于 Astro 构建。先上 Cloudflare，后迁 VPS，架构保持一致。"
-                : "Built with Astro. Deployed on Cloudflare first, VPS-ready by design."
+                ? "Let's Build, let's Realize."
+                : "Let's Build, let's Realize."
             }
           </p>
         </div>
@@ -83,9 +86,13 @@ const isZh = locale === "zh-CN";
       (() => {
         const STORAGE_KEY = "dwill_lang";
         const normalizeLang = (value) => (value === "zh-CN" ? "zh-CN" : "en-US");
-        const currentPath = window.location.pathname;
-        const currentLocale = currentPath === "/en" || currentPath.startsWith("/en/") ? "en-US" : "zh-CN";
+        const getCurrentPath = () => window.location.pathname;
+        const getCurrentLocale = () => {
+          const path = getCurrentPath();
+          return path === "/en" || path.startsWith("/en/") ? "en-US" : "zh-CN";
+        };
         const toTargetPath = (locale) => {
+          const currentPath = getCurrentPath();
           const zhOrEn = normalizeLang(locale);
           const target = zhOrEn === "en-US"
             ? (currentPath === "/" ? "/en/" : `/en${currentPath}`)
@@ -94,6 +101,8 @@ const isZh = locale === "zh-CN";
         };
 
         const init = () => {
+          const currentPath = getCurrentPath();
+          const currentLocale = getCurrentLocale();
           const switcher = document.querySelector("[data-lang-switch]");
           const saved = normalizeLang(localStorage.getItem(STORAGE_KEY) || currentLocale);
           localStorage.setItem(STORAGE_KEY, saved);
@@ -111,6 +120,8 @@ const isZh = locale === "zh-CN";
           }
 
           if (switcher instanceof HTMLSelectElement) {
+            if (switcher.dataset.langBound === "1") return;
+            switcher.dataset.langBound = "1";
             switcher.addEventListener("change", () => {
               const targetLocale = normalizeLang(switcher.value);
               localStorage.setItem(STORAGE_KEY, targetLocale);
@@ -127,6 +138,7 @@ const isZh = locale === "zh-CN";
         } else {
           init();
         }
+        document.addEventListener("astro:page-load", init);
       })();
     </script>
   </body>

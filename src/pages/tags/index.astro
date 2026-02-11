@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageMasthead from "../../components/PageMasthead.astro";
 import { formatTagForPath, getAllTagsWithCount } from "../../utils/posts";
 import type { SiteLocale } from "../../utils/i18n";
 
@@ -12,18 +13,25 @@ const tags = await getAllTagsWithCount(locale);
   description="DWILL Blog 主题标签索引，可按分类快速浏览文章。"
 >
   <div class="page-center">
-    <section class="page-intro page-intro-center">
-      <p>分类体系</p>
-      <h1>全部标签</h1>
-      <p>当前共收录 {tags.length} 个标签。</p>
-    </section>
+    <PageMasthead
+      kicker="标签索引"
+      title="全部标签"
+      subtitle={`当前共收录 ${tags.length} 个标签。`}
+      sideKicker="使用方式"
+      sideTitle="先选主题，再看文章"
+      sideText="每个标签聚合对应文章，适合按主题连续阅读。"
+      metrics={[
+        { value: String(tags.length), label: "标签数量" },
+        { value: "主题聚合", label: "组织方式" },
+      ]}
+    />
 
     <section class="tag-card-grid" aria-label="Tag index">
       {
         tags.map(([tag, count]) => (
           <article class="surface-card tag-card">
             <a href={`/tags/${formatTagForPath(tag)}/`}>
-              <p class="surface-kicker">主题</p>
+              <p class="surface-kicker">标签</p>
               <h3>#{tag}</h3>
               <p>{count} 篇文章</p>
             </a>

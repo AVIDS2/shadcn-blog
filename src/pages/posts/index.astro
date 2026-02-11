@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import PostCard from "../../components/PostCard.astro";
+import PageMasthead from "../../components/PageMasthead.astro";
 import { getPublishedPosts } from "../../utils/posts";
 import type { SiteLocale } from "../../utils/i18n";
 
@@ -13,22 +14,29 @@ const posts = await getPublishedPosts(locale);
   description="DWILL Blog 全部文章索引。静态发布、低运行时开销、长期可维护。"
 >
   <div class="page-center page-center-wide">
-    <section class="page-intro page-intro-center">
-      <p>归档</p>
-      <h1>全部文章</h1>
-      <p>当前已发布 {posts.length} 篇文章。</p>
-    </section>
+    <PageMasthead
+      kicker="内容库"
+      title="全部文章"
+      subtitle={`当前已发布 ${posts.length} 篇文章。`}
+      sideKicker="更新节奏"
+      sideTitle="按时间持续发布"
+      sideText="所有文章按发布时间排序，便于快速查看最新内容。"
+      metrics={[
+        { value: String(posts.length), label: "已发布文章" },
+        { value: "2", label: "当前语种" },
+      ]}
+    />
 
     <section class="surface-inline-grid" aria-label="Post archive summary">
       <article class="surface-card">
-        <p class="surface-kicker">集合</p>
-        <h3>按时间排序</h3>
-        <p>全部公开文章以静态页面输出，路由规则稳定可预期。</p>
+        <p class="surface-kicker">内容组织</p>
+        <h3>时间线浏览</h3>
+        <p>按日期查看全部文章，更新顺序清晰可追踪。</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">分发</p>
-        <h3>搜索与订阅就绪</h3>
-        <p>构建时生成 Sitemap 与 RSS，便于抓取和订阅分发。</p>
+        <p class="surface-kicker">内容分发</p>
+        <h3>搜索与订阅可用</h3>
+        <p>构建时自动生成 Sitemap 与 RSS，便于检索与订阅。</p>
       </article>
     </section>
 

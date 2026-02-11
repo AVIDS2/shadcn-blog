@@ -2,7 +2,7 @@
 locale: "en-US"
 translationKey: "launch-architecture"
 title: "Launch Architecture: Static-First Blog System"
-description: "Why this blog uses a static-first architecture for performance, long-term maintainability, and effortless migration."
+description: "Why this blog uses a static-first architecture for performance, long-term maintainability, and reliable delivery."
 date: "2026-02-09"
 tags: ["architecture", "performance", "astro", "seo"]
 draft: false
@@ -16,7 +16,7 @@ This is the first architectural note for the current blog system. The objective 
 | --- | --- | --- |
 | Long-term maintainability | Markdown as source of truth | Content and infrastructure stay decoupled |
 | Strong performance | Static HTML output | Lowest runtime overhead |
-| Easy migration | Build once to `dist/` | Host on Cloudflare now, VPS later |
+| Consistent delivery | Build once to `dist/` | Host-agnostic artifacts with predictable release flow |
 | Search visibility | Sitemap + RSS + structured metadata | Better indexing and recrawl behavior |
 
 ## Performance Model

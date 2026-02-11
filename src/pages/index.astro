@@ -28,25 +28,11 @@ const latestMore = latestPosts.slice(1);
   </section>
 
   <div class="home-content-shell">
-    <section class="showcase-shell" aria-label="Showcase layout">
-      <div class="showcase-head">
-        <nav class="showcase-tabs" aria-label="Homepage sections">
-          <a class="active" href="/">示例</a>
-          <a href="/posts/">文章</a>
-          <a href="/tags/">标签</a>
-          <a href="/about/">关于</a>
-        </nav>
-        <div class="showcase-controls">
-          <button type="button" aria-label="Neutral theme">中性</button>
-        </div>
-      </div>
-    </section>
-
     <section class="surface-inline-grid surface-inline-grid-3" aria-label="System overview">
       <article class="surface-card surface-card-fixed">
-        <p class="surface-kicker">发布模式</p>
-        <h3>静态优先</h3>
-        <p>Markdown 为内容源，构建可预测，输出与部署平台解耦。</p>
+        <p class="surface-kicker">写作与发布</p>
+        <h3>Markdown 驱动</h3>
+        <p>文章以 Markdown 维护，构建后直接发布为静态页面。</p>
         <div class="surface-meta-row">
           <span>{posts.length} 篇文章</span>
           <span>{tags.length} 个标签</span>
@@ -54,15 +40,15 @@ const latestMore = latestPosts.slice(1);
       </article>
 
       <article class="surface-card surface-card-fixed">
-        <p class="surface-kicker">路由策略</p>
-        <h3>稳定 URL</h3>
-        <p>`/posts/slug/` 与 `/tags/tag/`，面向长期运营保持一致。</p>
+        <p class="surface-kicker">链接结构</p>
+        <h3>可引用路径</h3>
+        <p>文章与标签使用固定 URL，便于分享、收录和长期引用。</p>
       </article>
 
       <article class="surface-card surface-card-fixed">
-        <p class="surface-kicker">运维方式</p>
-        <h3>轻量工作流</h3>
-        <p>Markdown 写作，提交、构建、部署。无运行时 CMS 依赖。</p>
+        <p class="surface-kicker">上线流程</p>
+        <h3>提交即发布</h3>
+        <p>本地写作、Git 提交、自动构建部署，流程清晰且可迁移。</p>
       </article>
     </section>
 
@@ -114,7 +100,7 @@ const latestMore = latestPosts.slice(1);
       tags.length > 0 && (
         <section class="section-stack section-stack-wide">
           <div class="section-head">
-            <h2>主题信号</h2>
+            <h2>热门标签</h2>
             <a href="/tags/">探索</a>
           </div>
           <article class="surface-card">

@@ -1,47 +1,56 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import PageMasthead from "../components/PageMasthead.astro";
 ---
 
 <BaseLayout
   title="关于"
-  description="DWILL Blog 的架构思路与长期运营方法。"
+  description="DWILL Blog 的写作、发布与维护方式。"
 >
   <div class="page-center page-center-narrow">
-    <section class="page-intro page-intro-center">
-      <p>关于</p>
-      <h1>系统理念</h1>
-    </section>
+    <PageMasthead
+      kicker="关于本站"
+      title="我们如何写作与发布"
+      subtitle="这不是展示页，而是一套可长期运行的内容生产系统。"
+      sideKicker="工作原则"
+      sideTitle="内容优先，工程克制"
+      sideText="只保留真正有用的功能，确保写作、发布、维护都足够轻。"
+      metrics={[
+        { value: "4", label: "核心原则" },
+        { value: "长期维护", label: "目标" },
+      ]}
+    />
 
     <section class="surface-inline-grid" aria-label="About system goals">
       <article class="surface-card">
-        <p class="surface-kicker">架构</p>
-        <h3>静态优先发布</h3>
-        <p>Markdown 内容源，可预测构建，输出与托管平台无关。</p>
+        <p class="surface-kicker">内容来源</p>
+        <h3>Markdown 单一真源</h3>
+        <p>文章与元数据放在同一处管理，版本可追踪、协作更直接。</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">迁移</p>
-        <h3>先 Cloudflare，后 VPS</h3>
-        <p>保持一致 URL 与产物模型，确保部署可迁移性。</p>
+        <p class="surface-kicker">发布流程</p>
+        <h3>构建后静态输出</h3>
+        <p>提交代码即可触发构建，产物可部署到任意静态托管环境。</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">性能</p>
-        <h3>低运行时策略</h3>
-        <p>内容页最小化 JS，路由在构建期静态生成。</p>
+        <p class="surface-kicker">访问体验</p>
+        <h3>快加载，可阅读</h3>
+        <p>正文页尽量减少运行时负担，优先保证首屏速度和阅读连贯性。</p>
       </article>
       <article class="surface-card">
-        <p class="surface-kicker">设计</p>
-        <h3>有辨识度但保持克制</h3>
-        <p>视觉风格明确，同时控制依赖规模和维护复杂度。</p>
+        <p class="surface-kicker">长期演进</p>
+        <h3>结构清晰，方便迁移</h3>
+        <p>目录与路由规则保持稳定，后续扩展或迁移成本可控。</p>
       </article>
     </section>
 
     <section class="prose-flow">
-      <h2>设计目标</h2>
+      <h2>实践重点</h2>
       <ul>
-        <li>代码结构与运维流程保持极简。</li>
-        <li>首屏加载快，运行时 JavaScript 尽量少。</li>
-        <li>可持续发布，具备长期可维护性。</li>
-        <li>视觉有识别度，但不引入沉重前端负担。</li>
+        <li>写作流程足够直接，减少上下文切换。</li>
+        <li>内容路由稳定，外链与索引长期有效。</li>
+        <li>页面渲染克制，优先阅读体验与性能。</li>
+        <li>组件分层清晰，便于替换样式与动效。</li>
       </ul>
     </section>
   </div>
