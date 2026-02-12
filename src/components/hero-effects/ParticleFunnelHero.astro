@@ -47,7 +47,12 @@ const isEn = locale === "en-US";
 
   <script is:inline data-astro-rerun>
     (() => {
-      const root = document.querySelector("[data-hero-root]");
+      const scriptEl = document.currentScript;
+      const root =
+        (scriptEl instanceof HTMLScriptElement
+          ? scriptEl.closest("[data-hero-root]")
+          : null) ||
+        Array.from(document.querySelectorAll("[data-hero-root]")).at(-1);
       const canvas = root?.querySelector("[data-hero-canvas]");
       const actionGrid = root?.querySelector("[data-hero-actions]");
       const heroCopy = root?.querySelector("[data-hero-copy]");
@@ -108,6 +113,7 @@ const isEn = locale === "en-US";
       let rafId = 0;
       let startTime = performance.now();
       let pausedAt = 0;
+      let inView = true;
 
       const textParticles = [];
       const ambientParticles = [];
@@ -409,51 +415,64 @@ const isEn = locale === "en-US";
         ctx.restore();
       }
 
-      function projectPoint(px, py, pz, liftProgress, elapsed) {
-        const t = elapsed * 0.001;
-        const growth = easeInOutCubic(liftProgress);
-        const orbitAmp = easeOutCubic(liftProgress);
-        const spin = elapsed * 0.00008;
-        // Keep yaw continuously rotating, but avoid full tumble on pitch/roll.
-        // Full continuous tumble on all axes causes wireframe self-overlap artifacts.
-        const yaw = (t * 0.33 + Math.sin(t * 0.31) * 0.12) * orbitAmp;
-        const cosSpin = Math.cos(spin);
-        const sinSpin = Math.sin(spin);
-        const sx = px * cosSpin - pz * sinSpin;
-        const sy = py;
-        const sz = px * sinSpin + pz * cosSpin;
-
-        const pitchBase = lerp(-1.08, -0.56, growth);
-        const pitch = pitchBase + Math.sin(t * 0.44) * 0.22 * orbitAmp;
-        const cosX = Math.cos(pitch);
-        const sinX = Math.sin(pitch);
-        const ry = sy * cosX - sz * sinX;
-        const rz1 = sy * sinX + sz * cosX;
-
-        const cosY = Math.cos(yaw);
-        const sinY = Math.sin(yaw);
-        const rx = sx * cosY + rz1 * sinY;
-        const rz = -sx * sinY + rz1 * cosY;
-
-        const roll = Math.sin(t * 0.29) * 0.07 * orbitAmp;
-        const cosZ = Math.cos(roll);
-        const sinZ = Math.sin(roll);
-        const fx = rx * cosZ - ry * sinZ;
-        const fy = rx * sinZ + ry * cosZ;
-
-        const zoom = lerp(0.76, 1.02, growth);
-        const zTranslate = lerp(-430, -130, growth);
-        const camera = 1360;
-        const zWorld = rz * zoom + zTranslate;
-        const perspective = camera / Math.max(200, camera - zWorld);
-
+      function rotateX(point, angle) {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
         return {
-          x: cx + fx * zoom * perspective,
-          y: cy + fy * zoom * perspective,
+          x: point.x,
+          y: point.y * c - point.z * s,
+          z: point.y * s + point.z * c,
         };
       }
 
-      function cylinderPoint(u, v, liftProgress, elapsed) {
+      function rotateY(point, angle) {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        return {
+          x: point.x * c + point.z * s,
+          y: point.y,
+          z: -point.x * s + point.z * c,
+        };
+      }
+
+      function rotateZ(point, angle) {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        return {
+          x: point.x * c - point.y * s,
+          y: point.x * s + point.y * c,
+          z: point.z,
+        };
+      }
+
+      function getScenePose(liftProgress, elapsed) {
+        const t = elapsed * 0.001;
+        const growth = easeInOutCubic(liftProgress);
+        const orbitAmp = easeOutCubic(liftProgress);
+        return {
+          yaw: t * 0.16 + Math.sin(t * 0.29) * 0.1 * orbitAmp,
+          pitch: lerp(-0.92, -0.78, growth) + Math.sin(t * 0.22) * 0.1 * orbitAmp,
+          roll: Math.sin(t * 0.17) * 0.05 * orbitAmp,
+          scale: lerp(0.72, 0.96, growth),
+          zTranslate: lerp(-500, -210, growth),
+          camera: 1460,
+        };
+      }
+
+      function worldToScreen(point, pose) {
+        let p = rotateX(point, pose.pitch);
+        p = rotateY(p, pose.yaw);
+        p = rotateZ(p, pose.roll);
+
+        const zWorld = p.z * pose.scale + pose.zTranslate;
+        const perspective = pose.camera / Math.max(220, pose.camera - zWorld);
+        return {
+          x: cx + p.x * pose.scale * perspective,
+          y: cy + p.y * pose.scale * perspective,
+        };
+      }
+
+      function cylinderPoint(u, v, liftProgress, pose) {
         const base = Math.min(width, height);
         const aspect = width / Math.max(1, height);
         const wideT = clamp((aspect - 1) / 1.2, 0, 1);
@@ -462,28 +481,42 @@ const isEn = locale === "en-US";
 
         const radiusTarget = base * lerp(0.42, 0.34, wideT) * diameterScale;
         const radius = radiusTarget * growth;
-        const yExtentTarget = Math.min(height * 0.62, base * lerp(0.84, 0.96, wideT));
-        const yExtent = yExtentTarget * growth;
+        const zExtentTarget = Math.min(height * 0.62, base * lerp(0.84, 0.96, wideT));
+        const zExtent = zExtentTarget * growth;
 
         const angle = u;
-        return projectPoint(Math.cos(angle) * radius, v * yExtent, Math.sin(angle) * radius, liftProgress, elapsed);
+        return worldToScreen(
+          {
+            x: Math.cos(angle) * radius,
+            y: Math.sin(angle) * radius * 0.9,
+            z: v * zExtent,
+          },
+          pose,
+        );
       }
 
-      function diamondPoint(u, v, liftProgress, elapsed) {
+      function diamondPoint(u, v, liftProgress, pose) {
         const base = Math.min(width, height);
         const aspect = width / Math.max(1, height);
         const wideT = clamp((aspect - 1) / 1.2, 0, 1);
         const growth = easeInOutCubic(liftProgress);
 
-        const yExtentTarget = Math.min(height * 0.44, base * lerp(0.62, 0.72, wideT));
-        const yExtent = yExtentTarget * growth;
+        const zExtentTarget = Math.min(height * 0.44, base * lerp(0.62, 0.72, wideT));
+        const zExtent = zExtentTarget * growth;
         const peakRadiusTarget = base * lerp(0.28, 0.24, wideT);
         const peakRadius = peakRadiusTarget * growth;
         const absV = Math.abs(v);
         const radial = peakRadius * (1 - absV); // octahedron-like linear profile
         const angle = u;
 
-        return projectPoint(Math.cos(angle) * radial, v * yExtent, Math.sin(angle) * radial, liftProgress, elapsed);
+        return worldToScreen(
+          {
+            x: Math.cos(angle) * radial,
+            y: Math.sin(angle) * radial * 0.9,
+            z: v * zExtent,
+          },
+          pose,
+        );
       }
 
       function drawFunnel(phase, elapsed) {
@@ -494,6 +527,7 @@ const isEn = locale === "en-US";
 
         const uCount = 26;
         const vCount = 20;
+        const pose = getScenePose(liftProgress, elapsed);
 
         ctx.save();
         ctx.strokeStyle = "rgba(119, 128, 144, 0.4)";
@@ -514,15 +548,15 @@ const isEn = locale === "en-US";
         if (GEOMETRY_MODE === "cylinder-inner-diamond") {
           // Outer cylinder shell
           for (let ui = 0; ui < uCount; ui += 1) {
-            const u = (ui / uCount) * Math.PI * 2;
-            ctx.beginPath();
-            for (let vi = 0; vi <= vCount; vi += 1) {
-              const v = -1 + (vi / vCount) * 2;
-              const p = cylinderPoint(u, v, liftProgress, elapsed);
-              if (vi === 0) ctx.moveTo(p.x, p.y);
-              else ctx.lineTo(p.x, p.y);
-            }
-            ctx.stroke();
+              const u = (ui / uCount) * Math.PI * 2;
+              ctx.beginPath();
+              for (let vi = 0; vi <= vCount; vi += 1) {
+                const v = -1 + (vi / vCount) * 2;
+                const p = cylinderPoint(u, v, liftProgress, pose);
+                if (vi === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+              }
+              ctx.stroke();
           }
 
           for (let vi = 0; vi <= vCount; vi += 2) {
@@ -530,7 +564,7 @@ const isEn = locale === "en-US";
             ctx.beginPath();
             for (let ui = 0; ui <= uCount; ui += 1) {
               const u = (ui / uCount) * Math.PI * 2;
-              const p = cylinderPoint(u, v, liftProgress, elapsed);
+              const p = cylinderPoint(u, v, liftProgress, pose);
               if (ui === 0) ctx.moveTo(p.x, p.y);
               else ctx.lineTo(p.x, p.y);
             }
@@ -544,7 +578,7 @@ const isEn = locale === "en-US";
             ctx.beginPath();
             for (let vi = 0; vi <= vCount; vi += 1) {
               const v = -1 + (vi / vCount) * 2;
-              const p = diamondPoint(u, v, liftProgress, elapsed);
+              const p = diamondPoint(u, v, liftProgress, pose);
               if (vi === 0) ctx.moveTo(p.x, p.y);
               else ctx.lineTo(p.x, p.y);
             }
@@ -556,61 +590,101 @@ const isEn = locale === "en-US";
             ctx.beginPath();
             for (let ui = 0; ui <= uCount; ui += 1) {
               const u = (ui / uCount) * Math.PI * 2;
-              const p = diamondPoint(u, v, liftProgress, elapsed);
+              const p = diamondPoint(u, v, liftProgress, pose);
               if (ui === 0) ctx.moveTo(p.x, p.y);
               else ctx.lineTo(p.x, p.y);
             }
             ctx.stroke();
           }
 
-          // Central spine: connect top and bottom diamond apex through the core.
-          const apexTop = diamondPoint(0, -1, liftProgress, elapsed);
-          const apexBottom = diamondPoint(0, 1, liftProgress, elapsed);
-          const dx = apexBottom.x - apexTop.x;
-          const dy = apexBottom.y - apexTop.y;
-          const len = Math.max(1, Math.hypot(dx, dy));
-          const ux = dx / len;
-          const uy = dy / len;
-          const extend = Math.max(width, height) * 1.25;
-          const exTopX = apexTop.x - ux * extend;
-          const exTopY = apexTop.y - uy * extend;
-          const exBottomX = apexBottom.x + ux * extend;
-          const exBottomY = apexBottom.y + uy * extend;
+          // Infinite world axis: keep only the Z spine.
+          const axisLength = Math.max(width, height) * 1.5;
+          const drawInfiniteAxis = (fromPoint, toPoint, color, lineWidth, alphaBoost = 1) => {
+            const dx = toPoint.x - fromPoint.x;
+            const dy = toPoint.y - fromPoint.y;
+            const len = Math.max(1, Math.hypot(dx, dy));
+            const ux = dx / len;
+            const uy = dy / len;
+            const extend = Math.max(width, height) * 1.25;
+            const ax = fromPoint.x - ux * extend;
+            const ay = fromPoint.y - uy * extend;
+            const bx = toPoint.x + ux * extend;
+            const by = toPoint.y + uy * extend;
 
-          ctx.globalAlpha = Math.min(1, ctx.globalAlpha * 0.9);
-          ctx.strokeStyle = "rgba(66, 76, 98, 0.42)";
-          ctx.lineWidth = 1.35;
-          ctx.lineCap = "round";
-          ctx.shadowBlur = 4;
-          ctx.shadowColor = "rgba(86, 98, 122, 0.12)";
-          ctx.beginPath();
-          ctx.moveTo(exTopX, exTopY);
-          ctx.lineTo(exBottomX, exBottomY);
-          ctx.stroke();
+            ctx.globalAlpha = Math.min(1, ctx.globalAlpha * alphaBoost);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+            return { ax, ay, bx, by };
+          };
+
+          const axisZFrom = worldToScreen({ x: 0, y: 0, z: -axisLength }, pose);
+          const axisZTo = worldToScreen({ x: 0, y: 0, z: axisLength }, pose);
+
+          const spineReveal = easeOutCubic(clamp((liftProgress - 0.1) / 0.42, 0, 1));
+          const spineAlphaBoost = lerp(0.24, 0.9, spineReveal);
+          ctx.shadowBlur = 3;
+          ctx.shadowColor = "rgba(86, 98, 122, 0.08)";
+          const axisZLine = drawInfiniteAxis(
+            axisZFrom,
+            axisZTo,
+            "rgba(66, 76, 98, 0.28)",
+            1.2,
+            spineAlphaBoost,
+          );
           ctx.shadowBlur = 0;
+
+          const labelReveal = clamp((liftProgress - 0.24) / 0.25, 0, 1);
+          if (labelReveal > 0) {
+            const labelAlpha = 0.34 * labelReveal;
+            const drawAxisLabel = (label, line, towardStart = false, color = "rgba(90, 100, 120, 0.35)") => {
+              const dx = line.bx - line.ax;
+              const dy = line.by - line.ay;
+              const len = Math.max(1, Math.hypot(dx, dy));
+              const ux = dx / len;
+              const uy = dy / len;
+              const tx = towardStart ? line.ax + ux * 46 : line.bx - ux * 46;
+              const ty = towardStart ? line.ay + uy * 46 : line.by - uy * 46;
+              ctx.save();
+              ctx.globalAlpha = labelAlpha;
+              ctx.fillStyle = color;
+              ctx.font = '600 10px "Instrument Sans", "Segoe UI", sans-serif';
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText(label, tx, ty);
+              ctx.restore();
+            };
+
+            drawAxisLabel("Z", axisZLine, false, "rgba(66, 76, 98, 0.42)");
+          }
         } else {
           for (let ui = 0; ui < uCount; ui += 1) {
-            const u = (ui / uCount) * Math.PI * 2;
-            ctx.beginPath();
-            for (let vi = 0; vi <= vCount; vi += 1) {
-              const v = -1 + (vi / vCount) * 2;
-              const p = cylinderPoint(u, v, liftProgress, elapsed);
-              if (vi === 0) ctx.moveTo(p.x, p.y);
-              else ctx.lineTo(p.x, p.y);
-            }
-            ctx.stroke();
+              const u = (ui / uCount) * Math.PI * 2;
+              ctx.beginPath();
+              for (let vi = 0; vi <= vCount; vi += 1) {
+                const v = -1 + (vi / vCount) * 2;
+                const p = cylinderPoint(u, v, liftProgress, pose);
+                if (vi === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+              }
+              ctx.stroke();
           }
         }
 
         if (liftProgress > 0.09) {
           const nodeReveal = clamp((liftProgress - 0.09) / 0.18, 0, 1);
           const nodeSize = lerp(1.2, 1.8, nodeReveal);
-          ctx.globalAlpha = showProgress * 0.38 * nodeReveal;
-          ctx.fillStyle = "rgba(76, 86, 106, 0.72)";
+          const nodeAlphaBase = lerp(0.14, 0.32, nodeReveal);
+          ctx.globalAlpha = showProgress * nodeAlphaBase * nodeReveal;
+          ctx.fillStyle = "rgba(76, 86, 106, 0.56)";
           for (let ui = 0; ui < uCount; ui += 1) {
             const u = (ui / uCount) * Math.PI * 2;
-            const top = cylinderPoint(u, -1, liftProgress, elapsed);
-            const bottom = cylinderPoint(u, 1, liftProgress, elapsed);
+            const top = cylinderPoint(u, -1, liftProgress, pose);
+            const bottom = cylinderPoint(u, 1, liftProgress, pose);
             ctx.beginPath();
             ctx.arc(top.x, top.y, nodeSize, 0, Math.PI * 2);
             ctx.fill();
@@ -788,9 +862,22 @@ const isEn = locale === "en-US";
         rafId = window.requestAnimationFrame(frame);
       }
 
-      function stop() {
+      function pause() {
+        if (!running) return;
         running = false;
+        if (!pausedAt) pausedAt = performance.now();
         if (rafId) window.cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+
+      function resume() {
+        if (running) return;
+        if (pausedAt) {
+          startTime += performance.now() - pausedAt;
+          pausedAt = 0;
+        }
+        running = true;
+        rafId = window.requestAnimationFrame(frame);
       }
 
       const resizeObserver = new ResizeObserver(() => {
@@ -798,17 +885,32 @@ const isEn = locale === "en-US";
       });
       resizeObserver.observe(root);
 
+      const intersectionObserver = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0];
+          inView = !!entry?.isIntersecting;
+          if (!inView) {
+            pause();
+            return;
+          }
+          if (!document.hidden) {
+            resume();
+          }
+        },
+        {
+          threshold: 0.06,
+          rootMargin: "120px 0px 120px 0px",
+        },
+      );
+      intersectionObserver.observe(root);
+
       const visibilityHandler = () => {
         if (document.hidden) {
-          pausedAt = performance.now();
-          stop();
+          pause();
         } else {
-          if (pausedAt) {
-            startTime += performance.now() - pausedAt;
-            pausedAt = 0;
+          if (inView) {
+            resume();
           }
-          running = true;
-          rafId = window.requestAnimationFrame(frame);
         }
       };
 
@@ -816,11 +918,15 @@ const isEn = locale === "en-US";
       mediaReduce.addEventListener("change", () => window.location.reload());
 
       initScene();
-      rafId = window.requestAnimationFrame(frame);
+      if (!document.hidden && inView) {
+        running = false;
+        resume();
+      }
 
       const cleanup = () => {
-        stop();
+        pause();
         resizeObserver.disconnect();
+        intersectionObserver.disconnect();
         document.removeEventListener("visibilitychange", visibilityHandler);
       };
 

@@ -1,89 +1,163 @@
-<script>
-  const targets = Array.from(
-    document.querySelectorAll<HTMLElement>(".chart-frame[data-echarts-option]"),
-  );
+<script is:inline data-astro-rerun>
+  (() => {
+    const WIN = window;
 
-  const loadScript = (src: string) =>
-    new Promise((resolve, reject) => {
-      const existing = document.querySelector(`script[data-echarts-cdn="${src}"]`);
-      if (existing) {
-        existing.addEventListener("load", () => resolve(undefined), { once: true });
-        existing.addEventListener("error", () => reject(new Error("Failed to load ECharts CDN script")), {
-          once: true,
-        });
-        return;
-      }
+    const CDN_SRCS = [
+      "https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js",
+      "https://unpkg.com/echarts@5.5.1/dist/echarts.min.js",
+    ];
 
-      const script = document.createElement("script");
-      script.src = src;
-      script.async = true;
-      script.defer = true;
-      script.dataset.echartsCdn = src;
-      script.onload = () => resolve(undefined);
-      script.onerror = () => reject(new Error("Failed to load ECharts CDN script"));
-      document.head.appendChild(script);
-    });
+    const normalizeEcharts = (candidate) => {
+      const echarts = candidate?.default ?? candidate;
+      if (!echarts || typeof echarts.init !== "function") return null;
+      return echarts;
+    };
 
-  const loadEcharts = async () => {
-    try {
-      const mod = await import("echarts");
-      return mod;
-    } catch (error) {
-      console.warn("[ECharts] Local dynamic import failed, falling back to CDN.", error);
-
-      const echartsOnWindow = (window as Window & { echarts?: unknown }).echarts;
-      if (echartsOnWindow) return echartsOnWindow;
-      await loadScript("https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js");
-      const fallback = (window as Window & { echarts?: unknown }).echarts;
-      if (!fallback) throw new Error("CDN fallback loaded but window.echarts is missing.");
-      return fallback;
-    }
-  };
-
-  if (targets.length > 0) {
-    try {
-      const echarts = (await loadEcharts()) as {
-        init: (target: HTMLElement, theme?: unknown, opts?: { renderer?: string }) => {
-          setOption: (option: unknown) => void;
-          resize: () => void;
-          dispose: () => void;
-        };
-      };
-      const chartInstances: Array<{ resize: () => void; dispose: () => void }> = [];
-      const resizeHandlers: Array<() => void> = [];
-
-      for (const target of targets) {
-        const optionString = target.getAttribute("data-echarts-option");
-        if (!optionString) continue;
-
-        try {
-          const option = JSON.parse(decodeURIComponent(optionString));
-          const chart = echarts.init(target, null, { renderer: "svg" });
-          chart.setOption(option);
-          chartInstances.push(chart);
-
-          const handleResize = () => chart.resize();
-          window.addEventListener("resize", handleResize);
-          resizeHandlers.push(handleResize);
-        } catch (error) {
-          console.error("Failed to render echarts block:", error);
+    const loadScript = (src) =>
+      new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[data-echarts-cdn="${src}"]`);
+        if (existing) {
+          if (existing.dataset.error === "1") {
+            existing.remove();
+          } else {
+          // Script already loaded earlier page: resolve immediately.
+            if (existing.dataset.loaded === "1" || WIN.echarts) {
+              resolve();
+              return;
+            }
+            existing.addEventListener("load", () => resolve(), { once: true });
+            existing.addEventListener(
+              "error",
+              () => reject(new Error("Failed to load ECharts CDN script")),
+              {
+                once: true,
+              },
+            );
+            return;
+          }
         }
-      }
 
-      window.addEventListener(
-        "beforeunload",
-        () => {
+        const script = document.createElement("script");
+        const timeoutMs = 10000;
+        let timedOut = false;
+        const timer = window.setTimeout(() => {
+          timedOut = true;
+          script.dataset.error = "1";
+          reject(new Error("Timed out loading ECharts CDN script"));
+        }, timeoutMs);
+
+        script.src = src;
+        script.async = true;
+        script.defer = true;
+        script.dataset.echartsCdn = src;
+        script.onload = () => {
+          if (timedOut) return;
+          window.clearTimeout(timer);
+          script.dataset.loaded = "1";
+          resolve();
+        };
+        script.onerror = () => {
+          if (timedOut) return;
+          window.clearTimeout(timer);
+          script.dataset.error = "1";
+          reject(new Error("Failed to load ECharts CDN script"));
+        };
+        document.head.appendChild(script);
+      });
+
+    const loadEcharts = async () => {
+      const existing = normalizeEcharts(WIN.echarts);
+      if (existing) return existing;
+
+      try {
+        const mod = await import("echarts");
+        const echarts = normalizeEcharts(mod);
+        if (echarts) return echarts;
+        throw new Error("Local import succeeded, but ECharts API is missing.");
+      } catch (error) {
+        console.warn("[ECharts] Local dynamic import failed, falling back to CDN.", error);
+        for (const src of CDN_SRCS) {
+          try {
+            await loadScript(src);
+            const echarts = normalizeEcharts(WIN.echarts);
+            if (echarts) return echarts;
+          } catch (cdnError) {
+            console.warn(`[ECharts] CDN load failed: ${src}`, cdnError);
+          }
+        }
+        throw new Error("Failed to load ECharts from local import and all CDN fallbacks.");
+      }
+    };
+
+    const cleanup = () => {
+      if (typeof WIN.__dwillEchartsCleanup === "function") {
+        WIN.__dwillEchartsCleanup();
+      }
+    };
+
+    const initCharts = async () => {
+      cleanup();
+      const targets = Array.from(
+        document.querySelectorAll(".chart-frame[data-echarts-option]"),
+      );
+      if (targets.length === 0) return;
+
+      try {
+        const echarts = await loadEcharts();
+
+        const chartInstances = [];
+        const resizeHandlers = [];
+
+        for (const target of targets) {
+          if (!(target instanceof HTMLElement)) continue;
+          const optionString = target.getAttribute("data-echarts-option");
+          if (!optionString) continue;
+          try {
+            // Re-entry safety: dispose existing instance on same DOM.
+            const existing = echarts.getInstanceByDom?.(target);
+            existing?.dispose();
+
+            let option;
+            try {
+              option = JSON.parse(decodeURIComponent(optionString));
+            } catch {
+              option = JSON.parse(optionString);
+            }
+            const chart = echarts.init(target, null, { renderer: "svg" });
+            chart.setOption(option);
+            chartInstances.push(chart);
+
+            const handleResize = () => chart.resize();
+            window.addEventListener("resize", handleResize);
+            resizeHandlers.push(handleResize);
+          } catch (error) {
+            console.error("Failed to render echarts block:", error);
+          }
+        }
+
+        WIN.__dwillEchartsCleanup = () => {
           for (const resizeHandler of resizeHandlers) {
             window.removeEventListener("resize", resizeHandler);
           }
           for (const chart of chartInstances) {
             chart.dispose();
           }
-        },
-        { once: true },
-      );
-    } catch (error) {
-      console.error("[ECharts] Failed to initialize charts:", error);
+          WIN.__dwillEchartsCleanup = undefined;
+        };
+      } catch (error) {
+        console.error("[ECharts] Failed to initialize charts:", error);
+      }
+    };
+
+    // Initial render.
+    initCharts();
+
+    // Astro transitions: rerun after page swap.
+    if (!WIN.__dwillEchartsInitBound) {
+      WIN.__dwillEchartsInitBound = true;
+      document.addEventListener("astro:page-load", initCharts);
+      document.addEventListener("astro:before-swap", cleanup);
+      window.addEventListener("beforeunload", cleanup, { once: true });
     }
-  }
+  })();
 </script>

@@ -19,6 +19,7 @@ const navItems = [
 ];
 const searchHref = buildHref("/search/");
 const searchIndexUrl = buildHref("/search-index.json");
+const rssHref = buildHref("/rss.xml");
 const initialQuery = Astro.url.searchParams.get("q") ?? "";
 ---
 
@@ -59,6 +60,8 @@ const initialQuery = Astro.url.searchParams.get("q") ?? "";
         data-header-search
         data-index-url={searchIndexUrl}
         data-empty-label={isZh ? "无匹配文章" : "No matches"}
+        data-pages-label={isZh ? "页面" : "Pages"}
+        data-posts-label={isZh ? "文章" : "Posts"}
       >
         <input
           type="search"
@@ -72,6 +75,7 @@ const initialQuery = Astro.url.searchParams.get("q") ?? "";
         <div class="header-search-panel" data-header-search-panel hidden>
           <ul class="header-search-list" data-header-search-list></ul>
         </div>
+        <div class="header-search-backdrop" data-header-search-backdrop hidden></div>
       </form>
       <label class="lang-switch" for="lang-switcher">
         <select id="lang-switcher" data-lang-switch aria-label="Language switcher">
@@ -91,180 +95,251 @@ const initialQuery = Astro.url.searchParams.get("q") ?? "";
       >
         GitHub
       </a>
-      <a class="header-link" href="/rss.xml">RSS</a>
+      <a class="header-link" href={rssHref}>RSS</a>
       <a class="header-cta" href={buildHref("/posts/")}>
         {isZh ? "新文章" : "New Post"}
       </a>
     </div>
   </div>
 
-  <script is:inline>
+  <script is:inline data-astro-rerun>
     (() => {
-      const form = document.querySelector("[data-header-search]");
-      if (!(form instanceof HTMLFormElement)) return;
-      const input = form.querySelector("[data-header-search-input]");
-      const panel = form.querySelector("[data-header-search-panel]");
-      const list = form.querySelector("[data-header-search-list]");
-      if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !(list instanceof HTMLElement)) {
-        return;
-      }
+      const initHeaderSearch = () => {
+        const forms = Array.from(document.querySelectorAll("[data-header-search]"));
+        forms.forEach((formNode) => {
+          if (!(formNode instanceof HTMLFormElement)) return;
+          if (formNode.dataset.boundHeaderSearch === "1") return;
+          formNode.dataset.boundHeaderSearch = "1";
 
-      const indexUrl = form.dataset.indexUrl || "/search-index.json";
-      const emptyLabel = form.dataset.emptyLabel || "No matches";
-      const maxItems = 6;
-      let docs = null;
-      let activeIndex = -1;
-      let items = [];
-      let debounceId = 0;
+          const form = formNode;
+          const input = form.querySelector("[data-header-search-input]");
+          const panel = form.querySelector("[data-header-search-panel]");
+          const list = form.querySelector("[data-header-search-list]");
+          const backdrop = form.querySelector("[data-header-search-backdrop]");
+          if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !(list instanceof HTMLElement) || !(backdrop instanceof HTMLElement)) {
+            return;
+          }
 
-      const esc = (value) =>
-        value
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#39;");
+          const indexUrl = form.dataset.indexUrl || "/search-index.json";
+          const emptyLabel = form.dataset.emptyLabel || "No matches";
+          const pagesLabel = form.dataset.pagesLabel || "Pages";
+          const postsLabel = form.dataset.postsLabel || "Posts";
+          const loadingLabel = "Loading...";
+          const maxItems = 6;
+          let docs = null;
+          let activeIndex = -1;
+          let items = [];
+          let debounceId = 0;
 
-      const normalize = (value) => (value || "").trim().toLowerCase();
+          const esc = (value) =>
+            String(value ?? "")
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")
+              .replaceAll('"', "&quot;")
+              .replaceAll("'", "&#39;");
 
-      const openPanel = () => {
-        panel.hidden = false;
-        form.classList.add("is-open");
-      };
+          const normalize = (value) => (value || "").trim().toLowerCase();
 
-      const closePanel = () => {
-        panel.hidden = true;
-        form.classList.remove("is-open");
-        activeIndex = -1;
-      };
+          const openPanel = () => {
+            panel.hidden = false;
+            backdrop.hidden = false;
+            form.classList.add("is-open");
+          };
 
-      const loadIndex = async () => {
-        if (Array.isArray(docs)) return docs;
-        const response = await fetch(indexUrl, { credentials: "same-origin" });
-        if (!response.ok) return [];
-        const payload = await response.json();
-        docs = payload.docs || [];
-        return docs;
-      };
+          const closePanel = () => {
+            panel.hidden = true;
+            backdrop.hidden = true;
+            form.classList.remove("is-open");
+            activeIndex = -1;
+          };
 
-      const score = (doc, q) => {
-        const title = normalize(doc.title);
-        const desc = normalize(doc.description);
-        const tags = normalize((doc.tags || []).join(" "));
-        let points = 0;
-        if (title.startsWith(q)) points += 100;
-        if (title.includes(q)) points += 40;
-        if (desc.includes(q)) points += 16;
-        if (tags.includes(q)) points += 20;
-        return points;
-      };
+          const showLoading = () => {
+            list.innerHTML = `<li class="header-search-empty">${esc(loadingLabel)}</li>`;
+            openPanel();
+          };
 
-      const render = (rows) => {
-        if (rows.length === 0) {
-          list.innerHTML = `<li class="header-search-empty">${esc(emptyLabel)}</li>`;
-          openPanel();
-          return;
-        }
+          const showEmpty = () => {
+            list.innerHTML = `<li class="header-search-empty">${esc(emptyLabel)}</li>`;
+            openPanel();
+          };
 
-        list.innerHTML = rows
-          .map(
-            (row, index) => `
-              <li>
-                <a href="${esc(row.url)}" data-search-item data-index="${index}">
-                  <strong>${esc(row.title)}</strong>
-                  <small>${esc(row.description)}</small>
-                </a>
-              </li>
-            `,
-          )
-          .join("");
-        items = Array.from(list.querySelectorAll("[data-search-item]"));
-        openPanel();
-      };
+          const loadIndex = async () => {
+            if (Array.isArray(docs)) return docs;
+            const response = await fetch(indexUrl, { credentials: "same-origin" });
+            if (!response.ok) return [];
+            const payload = await response.json();
+            docs = payload.docs || [];
+            return docs;
+          };
 
-      const highlight = () => {
-        items.forEach((item, index) => {
-          if (!(item instanceof HTMLElement)) return;
-          item.classList.toggle("is-active", index === activeIndex);
+          const score = (doc, q) => {
+            const title = normalize(doc.title);
+            const desc = normalize(doc.description);
+            const tags = normalize((doc.tags || []).join(" "));
+            let points = 0;
+            if (title.startsWith(q)) points += 100;
+            if (title.includes(q)) points += 40;
+            if (desc.includes(q)) points += 16;
+            if (tags.includes(q)) points += 20;
+            return points;
+          };
+
+          const render = (rows) => {
+            if (!rows.length) {
+              showEmpty();
+              return;
+            }
+
+            const pages = rows.filter((row) => row.kind === "page");
+            const posts = rows.filter((row) => row.kind !== "page");
+            let index = 0;
+            const withIndex = (arr) =>
+              arr.map((item) => {
+                const out = { ...item, __idx: index };
+                index += 1;
+                return out;
+              });
+            const pageItems = withIndex(pages);
+            const postItems = withIndex(posts);
+
+            let rebuilt = "";
+            const pushRows = (arr) => {
+              arr.forEach((row) => {
+                rebuilt += `
+                  <li>
+                    <a href="${esc(row.url)}" data-search-item data-index="${row.__idx}">
+                      <strong>${esc(row.title)}</strong>
+                      <small>${esc(row.description)}</small>
+                    </a>
+                  </li>
+                `;
+              });
+            };
+            if (pageItems.length) {
+              rebuilt += `<li class="header-search-section-label">${esc(pagesLabel)}</li>`;
+              pushRows(pageItems);
+            }
+            if (postItems.length) {
+              rebuilt += `<li class="header-search-section-label">${esc(postsLabel)}</li>`;
+              pushRows(postItems);
+            }
+
+            list.innerHTML = rebuilt;
+            items = Array.from(list.querySelectorAll("[data-search-item]"));
+            openPanel();
+          };
+
+          const renderDefault = async () => {
+            showLoading();
+            const all = await loadIndex();
+            const rows = all
+              .slice()
+              .sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf())
+              .slice(0, maxItems);
+            activeIndex = -1;
+            render(rows);
+          };
+
+          const highlight = () => {
+            items.forEach((item, index) => {
+              if (!(item instanceof HTMLElement)) return;
+              item.classList.toggle("is-active", index === activeIndex);
+            });
+          };
+
+          const perform = async () => {
+            const q = normalize(input.value);
+            if (!q) {
+              return renderDefault();
+            }
+            showLoading();
+
+            const all = await loadIndex();
+            const rows = all
+              .map((doc) => ({ doc, score: score(doc, q) }))
+              .filter((entry) => entry.score > 0)
+              .sort(
+                (a, b) =>
+                  b.score - a.score ||
+                  new Date(b.doc.date).valueOf() - new Date(a.doc.date).valueOf(),
+              )
+              .slice(0, maxItems)
+              .map((entry) => entry.doc);
+
+            activeIndex = -1;
+            render(rows);
+          };
+
+          input.addEventListener("input", () => {
+            if (debounceId) window.clearTimeout(debounceId);
+            debounceId = window.setTimeout(() => {
+              perform().catch(() => showEmpty());
+            }, 120);
+          });
+
+          input.addEventListener("focus", () => {
+            perform().catch(() => showEmpty());
+          });
+
+          input.addEventListener("click", () => {
+            perform().catch(() => showEmpty());
+          });
+
+          input.addEventListener("keydown", (event) => {
+            if (panel.hidden || items.length === 0) return;
+            if (event.key === "Escape") {
+              closePanel();
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              activeIndex = (activeIndex + 1) % items.length;
+              highlight();
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              activeIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+              highlight();
+              return;
+            }
+            if (event.key === "Enter" && activeIndex >= 0) {
+              const target = items[activeIndex];
+              if (target instanceof HTMLAnchorElement) {
+                event.preventDefault();
+                window.location.assign(target.href);
+              }
+            }
+          });
+
+          list.addEventListener("mousemove", (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const anchor = target.closest("[data-search-item]");
+            if (!(anchor instanceof HTMLElement)) return;
+            const next = Number(anchor.dataset.index || "-1");
+            if (Number.isNaN(next)) return;
+            activeIndex = next;
+            highlight();
+          });
+
+          document.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!(target instanceof Node)) return;
+            if (!form.contains(target) && !panel.contains(target)) closePanel();
+          });
+
+          backdrop.addEventListener("click", closePanel);
         });
       };
 
-      const perform = async () => {
-        const q = normalize(input.value);
-        if (!q) {
-          closePanel();
-          return;
-        }
-
-        const all = await loadIndex();
-        const rows = all
-          .map((doc) => ({ doc, score: score(doc, q) }))
-          .filter((entry) => entry.score > 0)
-          .sort(
-            (a, b) =>
-              b.score - a.score ||
-              new Date(b.doc.date).valueOf() - new Date(a.doc.date).valueOf(),
-          )
-          .slice(0, maxItems)
-          .map((entry) => entry.doc);
-
-        activeIndex = -1;
-        render(rows);
-      };
-
-      input.addEventListener("input", () => {
-        if (debounceId) window.clearTimeout(debounceId);
-        debounceId = window.setTimeout(() => {
-          perform().catch(() => closePanel());
-        }, 120);
-      });
-
-      input.addEventListener("focus", () => {
-        if (input.value.trim()) {
-          perform().catch(() => closePanel());
-        }
-      });
-
-      input.addEventListener("keydown", (event) => {
-        if (panel.hidden || items.length === 0) return;
-
-        if (event.key === "ArrowDown") {
-          event.preventDefault();
-          activeIndex = (activeIndex + 1) % items.length;
-          highlight();
-          return;
-        }
-        if (event.key === "ArrowUp") {
-          event.preventDefault();
-          activeIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
-          highlight();
-          return;
-        }
-        if (event.key === "Enter" && activeIndex >= 0) {
-          const target = items[activeIndex];
-          if (target instanceof HTMLAnchorElement) {
-            event.preventDefault();
-            window.location.assign(target.href);
-          }
-        }
-      });
-
-      list.addEventListener("mousemove", (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLElement)) return;
-        const anchor = target.closest("[data-search-item]");
-        if (!(anchor instanceof HTMLElement)) return;
-        const next = Number(anchor.dataset.index || "-1");
-        if (Number.isNaN(next)) return;
-        activeIndex = next;
-        highlight();
-      });
-
-      document.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof Node)) return;
-        if (!form.contains(target)) closePanel();
-      });
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initHeaderSearch, { once: true });
+      } else {
+        initHeaderSearch();
+      }
+      document.addEventListener("astro:page-load", initHeaderSearch);
     })();
   </script>
 </header>

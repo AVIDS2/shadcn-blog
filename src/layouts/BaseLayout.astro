@@ -31,6 +31,7 @@ const imageUrl = image ? new URL(image, site).toString() : undefined;
 const locale: SiteLocale = detectLocaleFromPath(Astro.url.pathname);
 const isZh = locale === "zh-CN";
 const isHomePage = Astro.url.pathname === "/" || Astro.url.pathname === "/en/";
+const rssHref = isZh ? "/rss.xml" : "/en/rss.xml";
 ---
 
 <!doctype html>
@@ -60,7 +61,7 @@ const isHomePage = Astro.url.pathname === "/" || Astro.url.pathname === "/en/";
     <meta name="twitter:description" content={description} />
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
 
-    <link rel="alternate" type="application/rss+xml" title="DWILL Blog RSS" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title="DWILL Blog RSS" href={rssHref} />
   </head>
   <body>
     <ClientRouter />
