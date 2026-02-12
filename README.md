@@ -1,136 +1,91 @@
-# DWILL Blog (Static-First)
+# DWILL Blog
 
-Ultra-lightweight static blog for `blog2.dwill.top`, built with Astro.
+Production-ready Astro blog for `blog2.dwill.top`.
 
-## Core Principles
+Repository: <https://github.com/AVIDS2/blog>
 
-- Markdown is the single source of truth.
-- Build output is pure static files in `dist/`.
-- Runtime JavaScript is minimal and strictly opt-in.
-- URL structure stays stable across Cloudflare Pages and VPS hosting.
-- Text files must be saved as UTF-8 (especially on Windows) to avoid Chinese garbled text.
+## Highlights
 
-## Encoding Rule (Windows Important)
+- Static-first architecture, minimal runtime overhead.
+- Markdown-driven content system with structured frontmatter.
+- Built-in rendering for table, code block, LaTeX, and ECharts.
+- Multilingual navigation/content flow (zh/en).
+- SEO essentials included: sitemap, RSS, canonical, JSON-LD.
+- Cloudflare Pages Git auto-deploy ready.
 
-- Always save `.astro`, `.ts`, `.js`, `.css`, `.md`, `.json` as `UTF-8`.
-- Do not use system-default ANSI/GBK encoding for source files.
-- The repository includes `.editorconfig` with `charset = utf-8`.
+## Preview
 
-## URL Strategy
+![Preview 1](docs/image/preview/image.png)
+![Preview 2](docs/image/preview/image%20copy.png)
+![Preview 3](docs/image/preview/image%20copy%202.png)
+![Preview 4](docs/image/preview/image%20copy%203.png)
+![Preview 5](docs/image/preview/image%20copy%204.png)
 
-- Home: `/`
-- Posts index: `/posts/`
-- Post detail: `/posts/<slug>/`
-- Tags index: `/tags/`
-- Tag detail: `/tags/<tag>/`
-- RSS: `/rss.xml`
-- Sitemap: `/sitemap-index.xml`
+## Stack
 
-## Quick Start
+- Astro 5
+- TypeScript
+- Tailwind CSS
+- KaTeX (`remark-math` + `rehype-katex`)
+- ECharts (client loader)
+
+## Local Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Build:
+Build and preview:
 
 ```bash
 npm run build
-```
-
-Preview built site:
-
-```bash
 npm run preview
 ```
 
 ## Content Workflow
 
-1. Ask AI to generate Markdown (`.md`) with frontmatter.
-2. Review content quality (facts, links, tone, grammar).
-3. Save into `src/content/posts/`.
-4. Run local preview.
-5. Deploy.
-
-### Frontmatter Template
+Write posts in `src/content/posts/` using Markdown frontmatter:
 
 ```md
 ---
 title: "Post title"
-description: "One-line summary for SEO and feeds."
-date: "2026-02-09"
-updated: "2026-02-09" # optional
+description: "One-line summary for SEO and feed."
+date: "2026-02-12"
+updated: "2026-02-12"
 tags: ["architecture", "performance"]
 draft: false
 ---
 ```
 
-## Markdown Features Enabled
+## Project Structure
 
-- GFM tables/task lists via `remark-gfm`
-- LaTeX via `remark-math` + `rehype-katex`
-- Heading anchors via `rehype-slug` + `rehype-autolink-headings`
-- ECharts via fenced code block:
-
-````md
-```echarts
-{ "xAxis": { "type": "category", "data": ["A", "B"] }, "yAxis": { "type": "value" }, "series": [{ "type": "bar", "data": [3, 9] }] }
-```
-````
-
-## Hero Effect System (Pluggable)
-
-Homepage animation is componentized and switchable:
-
-- Active setting: `src/config/hero-effects.ts`
-- Effect host: `src/components/hero-effects/HeroEffectHost.astro`
-- Current effects:
-  - `particle-funnel` (Canvas particle + funnel scene)
-  - `static-minimal` (non-animated fallback style)
-
-To switch effect, only change:
-
-```ts
-export const heroEffects = {
-  active: "static-minimal",
-} as const;
+```text
+src/
+  components/
+  content/posts/
+  layouts/
+  pages/
+public/
+  images/posts/<slug>/
+docs/
+  image/preview/
 ```
 
-## Image Storage Convention
+## Cloudflare Pages Deployment
 
-- Store article images under:
-  - `public/images/posts/<slug>/...`
-- Keep names deterministic:
-  - `hero.webp`, `chart-01.webp`, `diagram-architecture.avif`
-- Prefer AVIF/WebP and multiple sizes for responsive loading.
+Use Git integration with repo `AVIDS2/blog`:
 
-## Deployment
-
-### Cloudflare Pages (Current)
-
-Create a Pages project:
-
+- Production branch: `main`
 - Build command: `npm run build`
 - Build output directory: `dist`
-- Production branch: your main branch
+- Root directory: _(empty)_
 
-Or CLI deploy:
+After first setup, every `git push` to `main` triggers automatic deployment.
 
-```bash
-npx wrangler whoami
-npm run deploy:cf
-```
+## VPS Migration
 
-If this is your first deploy with a new project, run:
-
-```bash
-npx wrangler pages deploy dist --project-name <your-pages-project>
-```
-
-### VPS Migration (Future)
-
-Same repository, same build output:
+No architecture rewrite needed:
 
 ```bash
 git pull
@@ -138,17 +93,8 @@ npm ci
 npm run build
 ```
 
-Then serve `dist/` using Nginx/Caddy/static server.
+Then serve `dist/` via Nginx/Caddy/any static file server.
 
-No route rewrite changes are required if domain remains `blog2.dwill.top`.
+## Encoding (Windows)
 
-## SEO Checklist
-
-- [x] Canonical per page
-- [x] OpenGraph + Twitter meta
-- [x] JSON-LD article schema
-- [x] `sitemap-index.xml`
-- [x] `robots.txt`
-- [x] `rss.xml`
-- [ ] Submit sitemap in Google Search Console
-- [ ] Submit sitemap in Bing Webmaster Tools
+Save source and markdown files as UTF-8 to avoid Chinese garbled text.
