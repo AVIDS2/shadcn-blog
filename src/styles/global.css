@@ -32,10 +32,12 @@ body {
 html {
   scrollbar-gutter: stable;
   overflow-y: scroll;
+  overflow-x: clip;
 }
 
 body {
   min-height: 100dvh;
+  overflow-x: clip;
   color: var(--foreground);
   font-family: "Instrument Sans", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.68;
@@ -1479,6 +1481,17 @@ select:focus-visible {
   border-radius: 12px;
 }
 
+.prose-flow .katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-flow .katex-display > .katex {
+  min-width: max-content;
+}
+
 .prose-flow table {
   width: 100%;
   border-collapse: collapse;
@@ -1872,6 +1885,12 @@ h3:hover .heading-anchor {
     letter-spacing: -0.02em;
   }
 
+  .article-header h1 {
+    font-size: clamp(1.96rem, 11vw, 2.6rem);
+    line-height: 1.06;
+    letter-spacing: -0.012em;
+  }
+
   .page-masthead-subtitle {
     font-size: 0.88rem;
     line-height: 1.52;
@@ -2050,20 +2069,23 @@ h3:hover .heading-anchor {
   }
 
   .prose-flow table {
-    display: table;
-    width: max-content;
-    min-width: 100%;
+    display: block;
+    width: 100%;
     overflow-x: auto;
     white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 
   .prose-flow table thead,
-  .prose-flow table tbody {
-    display: table-row-group;
+  .prose-flow table tbody,
+  .prose-flow table tr {
+    display: table;
+    width: max-content;
+    min-width: 100%;
   }
 
   .prose-flow table thead {
-    display: table-header-group;
+    display: table;
   }
 }
 
